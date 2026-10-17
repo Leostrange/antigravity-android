@@ -11,7 +11,7 @@
 
   <p><font size="6"><b>Antigravity для Android</b></font></p>
 
-  <p><font color="#7d8590">Автономная среда разработки на базе ИИ-агентов, реализованная нативно для Android и ARM64.</font></p>
+  <p><font color="#7d8590">Русская сборка <a href="https://github.com/Leostrange">Leostrange</a>. Автономная среда разработки для Android и ARM64, форк <a href="https://github.com/werdio325-png/antigravity-android">оригинала</a>.</font></p>
 
   <p>
     <code>Android 7.0+</code> &nbsp;&bull;&nbsp;
@@ -33,6 +33,23 @@
   <p align="center"><font size="2" color="#7d8590">Интерфейс автономной агентной разработки Antigravity на Android (Linux 6.1, AArch64)</font></p>
 
 </div>
+
+---
+
+<p><font size="5"><b>Что изменено</b></font></p>
+
+Сборка [Leostrange](https://github.com/Leostrange) поверх [оригинала](https://github.com/werdio325-png/antigravity-android). Полный список — в [CHANGELOG.md](CHANGELOG.md). APK — в [релизе v2.3.0-ru](https://github.com/Leostrange/antigravity-android/releases/latest).
+
+| Раздел | Что сделано |
+| --- | --- |
+| Русификация | Весь интерфейс: настройки, чат, инструменты, плагины, разрешения, диалоги. Язык системы, русский или английский |
+| Темы | Списки и окна берут цвета выбранной темы, а не остаются чёрными |
+| Списки | Компактные, по ширине карточки, без горизонтального сдвига страницы |
+| Чат | Клавиатура не обрезает строку ввода. Пункт браузера в меню «плюс» на месте. Вывод команд не заливается чёрным |
+| Вложения | До 10 файлов, одинаковые миниатюры, просмотр фото и текста, удаление крестиком |
+| Инструменты | Раздел в настройках, прогресс на кнопке, журнал с копированием, Node.js для плагинов, подпись APK v1–v4 |
+| Щит | Режимы разрешений у строки ввода, включая турборежим |
+| Микрофон | Кнопка и полоска уровня есть. Распознавание речи WebView в этой сборке не работает |
 
 ---
 
@@ -163,10 +180,10 @@
   <tr>
     <td width="33%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
       <p><font size="4"><b>1. Загрузка APK</b></font></p>
-      <p><font color="#7d8590">В разделе <a href="https://github.com/werdio325-png/antigravity-android/releases">Releases</a> представлены релизные пакеты:<br/><br/>
-      &bull; <b><code>antigravity.apk</code></b> — стандартная версия (порт 45157).<br/>
-      &bull; <b><code>antigravity-bypass.apk</code></b> — сборка с патчем региональных ограничений.<br/><br/>
-      <i>Поддерживается бесшовное обновление поверх старых сборок.</i></font></p>
+      <p><font color="#7d8590">В разделе <a href="https://github.com/Leostrange/antigravity-android/releases/latest">Releases</a> этой сборки:<br/><br/>
+      &bull; <b><code>antigravity.apk</code></b> — обычная версия.<br/>
+      &bull; <b><code>antigravity-bypass.apk</code></b> — та же версия с обходом региональных ограничений.<br/><br/>
+      <i>Пакеты подписаны debug-ключом. Если подпись не совпадёт с уже установленным приложением, Android попросит удалить старое.</i></font></p>
     </td>
     <td width="33%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
       <p><font size="4"><b>2. Настройка прав</b></font></p>
@@ -175,10 +192,10 @@
     </td>
     <td width="33%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
       <p><font size="4"><b>3. Установка инструментов</b></font></p>
-      <p><font color="#7d8590">Установите требуемый инструментарий через встроенный терминал:<br/><br/>
+      <p><font color="#7d8590">Инструменты ставятся в <b>Настройки → Инструменты</b>: прогресс на кнопке и журнал, который можно скопировать.<br/><br/>
+      Через терминал по-прежнему работает:<br/>
       <code>pkg update</code><br/>
-      <code>pkg install git python nodejs</code><br/><br/>
-      Среда готова к компиляции и разработке.</font></p>
+      <code>pkg install git python nodejs</code></font></p>
     </td>
   </tr>
 </table>

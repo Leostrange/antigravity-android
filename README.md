@@ -11,7 +11,7 @@
 
   <p><font size="6"><b>Antigravity for Android</b></font></p>
 
-  <p><font color="#7d8590">Autonomous agentic development environment engineered natively for Android and ARM64.</font></p>
+  <p><font color="#7d8590">Russian build by <a href="https://github.com/Leostrange">Leostrange</a>. Fork of the native Android ARM64 agent environment. Changes: <a href="CHANGELOG.md">CHANGELOG.md</a>, <a href="README.ru.md">по-русски</a>.</font></p>
 
   <p>
     <code>Android 7.0+</code> &nbsp;&bull;&nbsp;
@@ -163,7 +163,7 @@ Real-world test: the agent authored a custom Python I/O benchmark and executed m
   <tr>
     <td width="33%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
       <p><font size="4"><b>1. Download APK</b></font></p>
-      <p><font color="#7d8590">Releases are available under <a href="https://github.com/werdio325-png/antigravity-android/releases">Releases</a>:<br/><br/>
+      <p><font color="#7d8590">This fork's packages are under <a href="https://github.com/Leostrange/antigravity-android/releases/latest">Releases</a>:<br/><br/>
       &bull; <b><code>antigravity.apk</code></b> — standard release (port 45157).<br/>
       &bull; <b><code>antigravity-bypass.apk</code></b> — region bypass edition.<br/><br/>
       <i>Seamless in-place updates are supported across versions.</i></font></p>
