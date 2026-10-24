@@ -17,6 +17,8 @@
   [![Release](https://img.shields.io/badge/Версия-2.4.1-blueviolet?style=flat-square)](https://github.com/werdio325-png/antigravity-android/releases)
   [![License](https://img.shields.io/badge/Лицензия-Apache_2.0-orange?style=flat-square)](LICENSE)
 
+  **Русская сборка [Leostrange](https://github.com/Leostrange)** — поверх апстрима v2.4.1 перенесены все наработки `v2.3.0-ru`: полная русификация интерфейса, темы, вложения до 10 файлов с просмотрщиком, режим Щита, встроенные инструменты, онбординг выбора языка, компактные меню и прозрачность. Правки применяются этапом `web/patch_ru.py` (fail-closed, без правки `main.js` напрямую). Список отличий — в [CHANGELOG.md](CHANGELOG.md).
+
   <br/>
 
   <picture>

@@ -152,9 +152,13 @@ emit_bundle
 # Patch only a staged copy: never dirty the checked-in upstream main.js.
 [ -f "$SCRIPT_DIR/main.js" ] || die "main.js not found"
 [ -f "$SCRIPT_DIR/patch_main.py" ] || die "patch_main.py not found"
+[ -f "$SCRIPT_DIR/patch_ru.py" ] || die "patch_ru.py not found"
+[ -f "$SCRIPT_DIR/ru_doc_reader.js" ] || die "ru_doc_reader.js not found"
 cp -f "$SCRIPT_DIR/main.js" "$GEN_DIR/main.js"
 python3 "$SCRIPT_DIR/patch_main.py" "$GEN_DIR/main.js" \
     || die "web/patch_main.py failed"
+python3 "$SCRIPT_DIR/patch_ru.py" "$GEN_DIR/main.js" \
+    || die "web/patch_ru.py failed"
 
 printf 'web: generated %d bundle(s) from %d fragment(s)\n' \
     "${#bundle_names[@]}" "$src_count"
