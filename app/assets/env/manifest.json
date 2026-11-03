@@ -1,0 +1,9 @@
+{
+  "bootstrapSha256": "6958054de70ed135c7d946a50dc98e91f7ef1e441abfaf7b824c08d11fbc2080",
+  "bootstrapSymlinkCount": 427,
+  "bundleId": "956c568b33bdfc5d1f79284021d1d70242402b4adf4fb67602fb1e3e7e230349",
+  "overlaySha256": "4a12840b5cebd73ae77ea08105b3c99bb8d5893f4178a03e95fa3421d2cdd1c2",
+  "pkgSha256": "eb182f8e54519890d0807582dcbeb45c8f33504c191a7525b0d622c92e642403",
+  "schema": 1,
+  "seedPackages": []
+}

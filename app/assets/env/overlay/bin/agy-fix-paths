@@ -1,0 +1,57 @@
+#!/data/user/0/com.agyru.bp/files/usr/bin/bash
+# agy-fix-paths [PATH...] -- rewrite hardcoded Android app prefixes to $PREFIX.
+set -uo pipefail
+
+if [ -z "${PREFIX:-}" ]; then
+    _agy_script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+    PREFIX="$(cd -- "$_agy_script_dir/.." 2>/dev/null && pwd)"
+    unset _agy_script_dir
+fi
+PATTERN='/data/(data|user/[0-9]+)/[^/]*/files/usr'
+
+if [ "$#" -gt 0 ]; then
+    targets=("$@")
+else
+    targets=("$PREFIX")
+fi
+
+esc="$(printf '%s' "$PREFIX" | sed 's/[\\&@]/\\&/g')"
+count=0
+
+# 1. Fix app-private prefixes
+while IFS= read -r -d '' f; do
+    [ -n "$f" ] || continue
+    tmp="$f.agyfix.$$"
+    if sed -E "s@$PATTERN@$esc@g" "$f" > "$tmp" 2>/dev/null; then
+        if cmp -s "$f" "$tmp"; then
+            rm -f "$tmp"
+        else
+            mode="$(stat -c '%a' "$f" 2>/dev/null)" || mode=""
+            [ -n "$mode" ] && chmod "$mode" "$tmp" 2>/dev/null
+            mv -f "$tmp" "$f"
+            count=$((count + 1))
+        fi
+    else
+        rm -f "$tmp"
+    fi
+done < <(grep -rIlZ -E -e "$PATTERN" -- "${targets[@]}" 2>/dev/null)
+
+# 2. Fix /usr/bin/env shebangs to $PREFIX/bin/
+while IFS= read -r -d '' f; do
+    [ -n "$f" ] || continue
+    tmp="$f.agyfix.$$"
+    if sed -E "1s@^#! */usr/bin/env[[:space:]]+([^[:space:]]+)@#!$esc/bin/\\1@" "$f" > "$tmp" 2>/dev/null; then
+        if cmp -s "$f" "$tmp"; then
+            rm -f "$tmp"
+        else
+            mode="$(stat -c '%a' "$f" 2>/dev/null)" || mode=""
+            [ -n "$mode" ] && chmod "$mode" "$tmp" 2>/dev/null
+            mv -f "$tmp" "$f"
+            count=$((count + 1))
+        fi
+    else
+        rm -f "$tmp"
+    fi
+done < <(grep -rIlZ -E -m 1 -e '^#! */usr/bin/env' -- "${targets[@]}" 2>/dev/null)
+
+printf 'agy-fix-paths: rewrote %d file(s) -> %s\n' "$count" "$PREFIX"

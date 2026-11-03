@@ -1,0 +1,3 @@
+#!/bin/sh
+# cs dummy stub to satisfy language_server path lookup immediately
+exit 0

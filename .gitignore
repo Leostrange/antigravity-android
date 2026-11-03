@@ -1,44 +1,12 @@
-# Build artifacts
-build/*
-!build/lib/
-!build/phases/
-!build/tools/
-dist/*
-!dist/.gitkeep
-app/gen/
-web/generated/
-core/language_server
-!core/language_server.tar.gz
-
-# Python cache
+# Промежуточные артефакты сборки (готовые APK лежат в корне Antigravity Projects/, вне репозитория)
+dist/*-unsigned.apk
+dist/signed/
 __pycache__/
-*.py[cod]
-*$py.class
-.pytest_cache/
-
-# Shell Bus runtime state
-bus/run/
-bus/elements/
-
-# Logs and debug output
-*.log
+*.pyc
 *.tmp
+*.aligned.tmp
 
-# Operating System files
-.DS_Store
-Thumbs.db
-
-# Sensitive credentials & keystores
-*.keystore
-!tools/debug.keystore
-*.jks
-*.key
-*-token
-jetski-standalone-oauth-token
-
-# Local build tools
-tools/*.exe
-tools/uber-apk-signer.jar
-
-# Scratch temporary work
-scratch/
+# Файлы ядра превышают лимит GitHub (100 МБ на файл):
+# лежат внутри APK и в архиве Antigravity-BP-repo.zip релиза
+app/assets/runtime/bin/liblanguage_server.so
+variants/bypass/assets/runtime/bin/liblanguage_server.so

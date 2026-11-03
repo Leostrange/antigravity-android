@@ -1,0 +1,407 @@
+/* Antigravity RU — targeted fixes on top of the original 2.4.1 bundle.
+   Every rule is scoped to one concrete component; no global containers. */
+
+/* Login card: in 2.4.1 the card is a fixed 480px inside a shrink-to-fit flex
+   column, so on phones narrower than ~530px it overflows the screen and its
+   rounded corners and side padding end up off-screen (edge-to-edge buttons).
+   Cap the panel to the viewport minus a 16px gutter on each side. */
+.entrance-auth-panel {
+  width: min(480px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  box-sizing: border-box;
+}
+.entrance-auth-panel > div {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Usage sheet: the inline "Refreshing…" row and its separator are taken out of
+   the layout (agy_ru.js shows the status in the header row instead), so the
+   sheet keeps one height. The tall empty-state variant (flex-col) is kept. */
+[data-testid="model-quota-refreshing"]:not(.flex-col),
+[data-testid="model-quota-refreshing"]:not(.flex-col) + * {
+  display: none !important;
+}
+.agy-usage-refreshing {
+  position: fixed;
+  z-index: 2147483000;
+  display: none;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--muted-foreground, #9d9d9d);
+}
+.agy-usage-spin {
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: agy-usage-spin .8s linear infinite;
+}
+@keyframes agy-usage-spin { to { transform: rotate(360deg); } }
+
+/* Russian does not use Title Case: Tailwind `capitalize` turns "По умолчанию"
+   into "По Умолчанию". Only text-transform, only for the Russian UI. */
+html[data-agy-language="ru"] .capitalize {
+  text-transform: none !important;
+}
+
+/* Chat input: 2.4.1 expands/collapses the toolbar and the project row with an
+   animated grid-template-rows (0fr <-> 1fr) inside overflow:hidden. On Mali
+   WebViews that region is sometimes left unpainted (black rectangle over the
+   placeholder and toolbar when the keyboard opens). Show/hide instantly here;
+   only this component is affected. */
+[data-testid="agent-input-box"] .grid[class*="transition-[grid-template-rows]"],
+[data-testid="agent-input-box"] .grid[style*="grid-template-rows"] {
+  transition: none !important;
+}
+
+/* Compact menus (agy_ru.js marks only menu/select sheets, never the model
+   selector). Look follows Out27: glass surface, 14px radius, tight items. */
+[data-testid="bottom-sheet"].agy-compact-sheet {
+  position: fixed !important;
+  right: auto !important;
+  height: auto !important;
+  width: max-content;
+  max-width: min(320px, calc(100vw - 16px)) !important;
+  min-width: 0 !important;
+  padding: 4px !important;
+  border: 1px solid color-mix(in srgb, var(--foreground, #888) 14%, transparent) !important;
+  border-radius: 14px !important;
+  background: color-mix(in srgb, var(--popover, var(--card, var(--background, #1c1c1e))) 90%, transparent) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .28) !important;
+  transform: none !important;
+  transition: opacity 120ms ease-out !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+[data-testid="bottom-sheet"].agy-compact-sheet[data-starting-style],
+[data-testid="bottom-sheet"].agy-compact-sheet[data-ending-style] { opacity: 0; }
+[data-testid="bottom-sheet"].agy-compact-sheet > div:first-child:has(> [data-testid="bottom-sheet-grabber"]),
+[data-testid="bottom-sheet"].agy-compact-sheet [data-testid="bottom-sheet-grabber"] { display: none !important; }
+[data-testid="bottom-sheet"].agy-compact-sheet :is(div, ul, section):not([role]) {
+  background-color: transparent !important;
+}
+[data-testid="bottom-sheet"].agy-compact-sheet :is(button, [role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], [role="option"]) {
+  min-height: 0 !important;
+  padding: 8px 10px !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  line-height: 1.25 !important;
+  gap: 10px !important;
+}
+[data-testid="bottom-sheet"].agy-compact-sheet.agy-tight-menu :is(button, [role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], [role="option"]) {
+  padding: 6px 10px !important;
+  font-size: 13px !important;
+}
+[data-testid="bottom-sheet"].agy-compact-sheet :is([aria-selected="true"], [data-highlighted], [data-state="checked"], [aria-checked="true"]) {
+  background-color: rgba(127, 127, 127, .22) !important;
+}
+[data-testid="bottom-sheet"].agy-compact-sheet :is(svg, img) { width: 15px; height: 15px; }
+[data-testid="bottom-sheet-backdrop"].agy-compact-backdrop {
+  background: transparent !important;
+}
+
+/* Stage 2: anchored popovers (menus / selects / popovers) styled like Out27.
+   Scoped to the popup elements inside the z-[6000] positioner only — no global
+   [role=menu]/[role=listbox] rules and nothing on shared containers. */
+.z-\[6000\] > :is([role="menu"], [role="listbox"], [data-select-popup]) {
+  background: color-mix(in srgb, var(--popover, var(--card, #1c1c1e)) 90%, transparent) !important;
+  border-radius: 12px !important;
+  border-color: color-mix(in srgb, var(--foreground, #888) 14%, transparent) !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .26) !important;
+  padding: 4px !important;
+  max-width: calc(100vw - 16px) !important;
+}
+.z-\[6000\] > [role="menu"] { min-width: 124px !important; max-width: min(288px, calc(100vw - 16px)) !important; }
+.z-\[6000\] > :is([role="menu"], [role="listbox"], [data-select-popup]) :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], [role="option"]) {
+  min-height: 0 !important;
+  padding: 6px 10px !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  line-height: 1.25 !important;
+}
+.z-\[6000\] > :is([role="menu"], [role="listbox"], [data-select-popup]) :is([data-highlighted], [aria-selected="true"]) {
+  background-color: rgba(127, 127, 127, .22) !important;
+}
+
+/* Attachments like Out27: a tile with the preview on top and a "×" strip
+   under it (instead of a 32px chip with a tiny corner badge). */
+[data-testid="input-attachment"] {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  width: 96px !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
+  vertical-align: top;
+}
+[data-testid="input-attachment"] > :first-child { width: 100% !important; border-radius: 0 !important; }
+[data-testid="input-attachment"] img {
+  width: 100% !important;
+  height: 72px !important;
+  border-radius: 0 !important;
+  object-fit: cover !important;
+}
+[data-testid="input-attachment"] > :first-child > div,
+[data-testid="input-attachment"] > div:first-child {
+  height: 72px !important;
+  padding: 0 6px !important;
+  justify-content: center;
+  flex-direction: column;
+  gap: 2px !important;
+}
+[data-testid="input-attachment"] > :first-child span,
+[data-testid="input-attachment"] > div:first-child span { max-width: 84px !important; font-size: 10px !important; }
+[data-testid="input-attachment-remove"] {
+  position: static !important;
+  opacity: 1 !important;
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+  width: 100% !important;
+  height: 24px !important;
+  border-radius: 0 !important;
+  border-top: 1px solid var(--border, rgba(127,127,127,.3));
+  background: transparent !important;
+}
+[data-testid="input-attachment-remove"] svg { width: 12px !important; height: 12px !important; }
+
+/* Menus: narrow vertical cards like Out27; a value next to a label wraps
+   under it instead of widening the card. */
+.z-\[6000\] > [role="menu"] [role="menuitem"] { flex-wrap: wrap !important; row-gap: 0 !important; }
+.z-\[6000\] > [role="menu"] [role="menuitem"] > span:not(:first-child) { white-space: normal !important; }
+
+/* Slash / mention list */
+#typeahead-menu.agy-typeahead li, #typeahead-menu.agy-typeahead [role="option"] {
+  min-height: 0 !important; padding-top: 4px !important; padding-bottom: 4px !important; font-size: 13px !important;
+}
+
+/* Shield (agy_shield.js): button in the chat toolbar + its own popover. */
+.agy-shield-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; padding: 0; border: 0; border-radius: 9999px;
+  background: transparent; color: var(--secondary-foreground, currentColor); cursor: pointer; flex-shrink: 0;
+}
+.agy-shield-btn[aria-expanded="true"] { background: rgba(127,127,127,.22); }
+#agy-shield {
+  position: fixed; z-index: 6100; overflow-y: auto; overscroll-behavior: contain;
+  padding: 4px; border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--foreground, #888) 14%, transparent);
+  background: color-mix(in srgb, var(--card, var(--popover, var(--background))) 90%, transparent);
+  color: var(--foreground);
+  box-shadow: 0 10px 28px rgba(0,0,0,.26);
+  font-size: 13px; line-height: 1.25;
+}
+#agy-shield button { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; width: 100%; gap: 8px; border-radius: 8px; }
+#agy-shield .agy-sh-head { padding: 8px 10px; }
+#agy-shield .agy-sh-title { flex: 1 1 auto; min-width: 0; }
+#agy-shield .agy-sh-cur { color: var(--muted-foreground, #888); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; }
+#agy-shield .agy-sh-chev { flex-shrink: 0; opacity: .6; transition: transform .15s; }
+#agy-shield .agy-sh-sec.open .agy-sh-chev { transform: rotate(180deg); }
+#agy-shield .agy-sh-sec + .agy-sh-sec { border-top: 1px solid color-mix(in srgb, var(--foreground, #888) 10%, transparent); }
+#agy-shield .agy-sh-opts { padding: 0 0 4px 8px; }
+#agy-shield .agy-sh-opt { padding: 6px 10px; justify-content: space-between; }
+#agy-shield .agy-sh-opt.sel { background: rgba(127,127,127,.22); }
+#agy-shield .agy-sh-opt.passive:not(.sel) { opacity: .6; cursor: default; }
+#agy-shield .agy-sh-ol { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+#agy-shield .agy-sh-od { color: var(--muted-foreground, #888); font-size: 11.5px; white-space: normal; }
+#agy-shield .agy-sh-empty { padding: 10px; color: var(--muted-foreground, #888); }
+
+/* Settings › Tools (agy_tools.js) */
+.agy-tools { padding: 12px 16px 24px; color: var(--foreground); font-size: 13px; }
+.agy-tools .agy-t-title { font-size: 18px; font-weight: 600; margin: 4px 0 6px; }
+.agy-tools .agy-t-sub, .agy-tools .agy-t-note { color: var(--muted-foreground, #888); font-size: 12.5px; line-height: 1.4; }
+.agy-tools .agy-t-note { margin: -2px 0 8px; }
+.agy-tools .agy-t-actions { display: flex; gap: 8px; margin: 12px 0 4px; }
+.agy-tools button { font: inherit; color: inherit; cursor: pointer; border: 0; border-radius: 8px; padding: 6px 12px;
+  background: color-mix(in srgb, var(--foreground, #888) 10%, transparent); }
+.agy-tools button:disabled { opacity: .45; cursor: default; }
+.agy-tools .agy-t-btn { background: var(--primary, #0b84ff); color: var(--primary-foreground, #fff); white-space: nowrap; flex-shrink: 0; }
+.agy-tools .agy-t-btn.sec { background: color-mix(in srgb, var(--foreground, #888) 10%, transparent); color: inherit; }
+.agy-tools .agy-t-sec { margin: 18px 0 8px; font-weight: 600; font-size: 14px; }
+.agy-tools .agy-t-group, .agy-tools .agy-t-card { border: 1px solid var(--border, rgba(127,127,127,.3)); border-radius: 12px; }
+.agy-tools .agy-t-card { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 8px; }
+.agy-tools .agy-t-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; }
+.agy-tools .agy-t-row + .agy-t-row { border-top: 1px solid var(--border, rgba(127,127,127,.3)); }
+.agy-tools .agy-t-chk { padding-top: 2px; }
+.agy-tools .agy-t-main { flex: 1 1 auto; min-width: 0; }
+.agy-tools .agy-t-name { font-weight: 500; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.agy-tools .agy-t-desc { color: var(--muted-foreground, #888); font-size: 12px; margin-top: 2px; line-height: 1.35; }
+.agy-tools .agy-t-badge { font-size: 11px; font-weight: 400; padding: 1px 6px; border-radius: 6px;
+  background: color-mix(in srgb, var(--foreground, #888) 10%, transparent); color: var(--muted-foreground, #888); }
+.agy-tools .agy-t-badge.ok { color: #1f9d55; background: rgba(31,157,85,.14); }
+.agy-tools .agy-t-badge.off { opacity: .7; }
+.agy-tools .agy-t-check { font-size: 11.5px; margin-top: 3px; font-family: ui-monospace, monospace; word-break: break-all; }
+.agy-tools .agy-t-check.ok { color: #1f9d55; } .agy-tools .agy-t-check.bad { color: #d64545; }
+.agy-tools .agy-t-warn { margin: 10px 0; padding: 8px 10px; border-radius: 8px; background: rgba(214,69,69,.14); color: #d64545; }
+.agy-tools .agy-t-bar { position: sticky; bottom: 0; display: flex; gap: 8px; padding: 10px 0 6px; margin-top: 12px; background: var(--background); }
+.agy-tools .agy-t-status { font-size: 12.5px; margin: 4px 0; }
+.agy-tools .agy-t-log { max-height: 40vh; overflow: auto; margin: 6px 0 0; padding: 8px; border-radius: 8px; font-size: 11px; line-height: 1.35;
+  white-space: pre-wrap; word-break: break-all; background: color-mix(in srgb, var(--foreground, #888) 7%, transparent); }
+
+/* Dark theme: no drop shadows under popups / menus / selects / shield —
+   on dark backgrounds they read (and sometimes render) as black overlays. */
+.dark :is(#agy-shield, [data-select-popup], [role="menu"], [role="listbox"], [class*="animate-slideIn"], .typeahead-popover, #typeahead-menu, [data-testid="bottom-sheet"].agy-compact-sheet),
+.dark .z-\[6000\] > * {
+  box-shadow: none !important;
+}
+
+/* Tools: live job panel (top of the page). No CSS animations or extra
+   compositing layers here — on this GPU they leave black rectangles. */
+.agy-tools .agy-t-job { margin: 12px 0 4px; padding: 12px; border-radius: 12px;
+  border: 1px solid var(--border, rgba(127,127,127,.3)); background: var(--card, var(--background)); }
+.agy-tools .agy-t-job.ok { border-color: rgba(31,157,85,.55); }
+.agy-tools .agy-t-job.bad { border-color: rgba(214,69,69,.65); }
+.agy-tools .agy-t-jtop { display: flex; align-items: baseline; gap: 8px; font-weight: 600; font-size: 13.5px; }
+.agy-tools .agy-t-jicon { width: 16px; flex-shrink: 0; color: var(--primary, #0b84ff); }
+.agy-tools .agy-t-job.ok .agy-t-jicon { color: #1f9d55; } .agy-tools .agy-t-job.bad .agy-t-jicon { color: #d64545; }
+.agy-tools .agy-t-jlabel { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.agy-tools .agy-t-jpct { font-variant-numeric: tabular-nums; color: var(--primary, #0b84ff); }
+.agy-tools .agy-t-pbar { height: 6px; margin: 10px 0 8px; border-radius: 6px; overflow: hidden;
+  background: color-mix(in srgb, var(--foreground, #888) 12%, transparent); }
+.agy-tools .agy-t-pfill { height: 100%; width: 0; border-radius: 6px; background: var(--primary, #0b84ff); }
+.agy-tools .agy-t-job.ok .agy-t-pfill { background: #1f9d55; }
+.agy-tools .agy-t-jrow { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.agy-tools .agy-t-jphase { flex: 1 1 auto; min-width: 0; }
+.agy-tools .agy-t-job.bad .agy-t-jphase { color: #d64545; }
+.agy-tools .agy-t-jtime { color: var(--muted-foreground, #888); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.agy-tools .agy-t-jfacts { font-size: 12px; color: var(--muted-foreground, #888); margin: 2px 0 6px; }
+.agy-tools .agy-t-jfacts:empty { display: none; }
+.agy-tools .agy-t-jtail { flex: 1 1 auto; min-width: 0; font: 11px/1.35 ui-monospace, monospace; color: var(--muted-foreground, #888);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.agy-tools .agy-t-jlog { padding: 4px 10px !important; font-size: 12px; flex-shrink: 0; }
+.agy-tools .agy-t-job .agy-t-log { margin-top: 8px; max-height: 45vh; }
+.agy-tools .agy-t-badge.run { color: var(--primary, #0b84ff); background: color-mix(in srgb, var(--primary, #0b84ff) 14%, transparent); }
+.agy-tools .agy-t-warn { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+
+/* Settings › Providers (agy_providers.js) */
+.agy-providers { padding: 12px 16px 24px; color: var(--foreground); font-size: 13px; }
+.agy-providers .agy-pv-title { font-size: 18px; font-weight: 600; margin: 4px 0 6px; }
+.agy-providers .agy-pv-sub { color: var(--muted-foreground, #888); font-size: 12.5px; line-height: 1.4; }
+.agy-providers .agy-pv-warn { margin: 10px 0; padding: 8px 10px; border-radius: 8px; background: rgba(214,69,69,.14); color: #d64545; font-size: 12px; }
+.agy-providers .agy-pv-empty { color: var(--muted-foreground, #888); margin: 16px 0; }
+.agy-providers button { all: unset; box-sizing: border-box; cursor: pointer; border-radius: 8px; padding: 7px 12px; font-size: 13px; text-align: center; }
+.agy-providers .agy-pv-btn { background: var(--primary, #0b84ff); color: var(--primary-foreground, #fff); }
+.agy-providers .agy-pv-btn.sec { background: color-mix(in srgb, var(--foreground, #888) 10%, transparent); color: inherit; }
+.agy-providers .agy-pv-btn.danger { background: rgba(214,69,69,.15); color: #d64545; }
+.agy-providers .agy-pv-card { display: flex; align-items: flex-start; gap: 10px; margin-top: 10px; padding: 12px;
+  border: 1px solid var(--border, rgba(127,127,127,.3)); border-radius: 12px; }
+.agy-providers .agy-pv-main { flex: 1 1 auto; min-width: 0; }
+.agy-providers .agy-pv-name { font-weight: 500; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.agy-providers .agy-pv-tag { font-size: 11px; font-weight: 400; padding: 1px 6px; border-radius: 6px; color: var(--muted-foreground, #888);
+  background: color-mix(in srgb, var(--foreground, #888) 10%, transparent); }
+.agy-providers .agy-pv-meta { color: var(--muted-foreground, #888); font-size: 12px; margin-top: 3px; overflow-wrap: anywhere; }
+.agy-providers .agy-pv-bar { margin-top: 14px; }
+.agy-providers .agy-pv-form { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+.agy-providers .agy-pv-field { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
+.agy-providers .agy-pv-field > span { color: var(--muted-foreground, #888); }
+/* Custom API-type dropdown (replaces the native black <select> popup). */
+.agy-providers .agy-pv-dd { position: relative; }
+.agy-providers .agy-pv-ddbtn { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
+  background: color-mix(in srgb, var(--foreground, #888) 7%, transparent);
+  border: 1px solid var(--border, rgba(127,127,127,.3)); border-radius: 8px; padding: 9px 10px; font: inherit;
+  color: var(--foreground); cursor: pointer; box-sizing: border-box; text-align: left; }
+.agy-providers .agy-pv-ddcar { opacity: .6; font-size: 11px; transition: transform .15s; }
+.agy-providers .agy-pv-dd.open .agy-pv-ddcar { transform: rotate(180deg); }
+.agy-providers .agy-pv-ddlist { margin-top: 4px; border: 1px solid var(--border, rgba(127,127,127,.3)); border-radius: 10px;
+  overflow: hidden; background: var(--popover, var(--background, #1b1b1d)); box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+.agy-providers .agy-pv-opt { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 12px; font-size: 13px; cursor: pointer; color: var(--foreground); }
+.agy-providers .agy-pv-opt:hover, .agy-providers .agy-pv-opt.sel { background: color-mix(in srgb, var(--foreground, #888) 10%, transparent); }
+.agy-providers .agy-pv-ok { color: var(--primary, #0b84ff); font-weight: 600; }
+.agy-providers select, .agy-providers input:not([type=checkbox]) {
+  font: inherit; color: var(--foreground); background: color-mix(in srgb, var(--foreground, #888) 7%, transparent);
+  border: 1px solid var(--border, rgba(127,127,127,.3)); border-radius: 8px; padding: 9px 10px; width: 100%; box-sizing: border-box; outline: none; }
+.agy-providers .agy-pv-hint { color: var(--muted-foreground, #888); font-size: 12px; margin-top: -4px; }
+.agy-providers .agy-pv-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+.agy-providers .agy-pv-status { font-size: 12.5px; padding: 8px 10px; border-radius: 8px;
+  background: color-mix(in srgb, var(--foreground, #888) 8%, transparent); overflow-wrap: anywhere; }
+.agy-providers .agy-pv-models { display: flex; flex-direction: column; gap: 2px; max-height: 44vh; overflow: auto;
+  border: 1px solid var(--border, rgba(127,127,127,.3)); border-radius: 10px; padding: 6px; }
+.agy-providers .agy-pv-model { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 6px; font-size: 12.5px; }
+.agy-providers .agy-pv-sel { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; cursor: pointer; }
+.agy-providers .agy-pv-sel > span { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.agy-providers .agy-pv-model input { flex: 0 0 auto; }
+.agy-providers .agy-pv-cap { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; cursor: pointer;
+  font-size: 11.5px; color: var(--muted-foreground, #888); padding: 2px 7px; border-radius: 12px;
+  background: color-mix(in srgb, var(--foreground, #888) 8%, transparent); white-space: nowrap; }
+.agy-providers .agy-pv-model:hover { background: color-mix(in srgb, var(--foreground, #888) 7%, transparent); }
+
+/* Providers: master switch, selector hint, model URLs */
+.agy-providers .agy-pv-switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0 6px;
+  padding: 12px; border: 1px solid var(--border, rgba(127,127,127,.3)); border-radius: 12px; }
+.agy-providers .agy-pv-switch > span { display: flex; flex-direction: column; gap: 3px; font-weight: 500; }
+.agy-providers .agy-pv-switch small { font-weight: 400; color: var(--muted-foreground, #888); font-size: 12px; }
+.agy-providers .agy-pv-switch input { flex: 0 0 auto; width: 20px; height: 20px; }
+.agy-providers .agy-pv-note { margin: 8px 0 4px; font-size: 12.5px; line-height: 1.45; color: var(--muted-foreground, #888); }
+.agy-providers .agy-pv-note b { color: var(--foreground); }
+.agy-providers .agy-pv-url { margin: 3px 0; }
+.agy-providers .agy-pv-url code { display: block; padding: 7px 10px; border-radius: 8px; font-size: 12px; overflow-wrap: anywhere;
+  background: color-mix(in srgb, var(--foreground, #888) 8%, transparent); user-select: all; -webkit-user-select: all; }
+
+/* Provider-mode local voice input (agy_ru.js / AgySTT) drives the NATIVE mic
+   button; while recognising we mark that button red. No animation/compositing
+   layer here — a keyframed glow destabilised this WebView's compositor. */
+.agy-stt-live { background: #d64545 !important; color: #fff !important; }
+.agy-stt-live svg { color: #fff !important; }
+
+/* Settings › Dictation (agy_dictation.js) */
+.agy-dictation { padding: 12px 16px 24px; color: var(--foreground); font-size: 13px; }
+.agy-dictation .agy-dc-title { font-size: 18px; font-weight: 600; margin: 4px 0 6px; }
+.agy-dictation .agy-dc-sub { color: var(--muted-foreground, #888); font-size: 12.5px; line-height: 1.4; margin-bottom: 14px; }
+.agy-dictation .agy-dc-master { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 12px; border: 1px solid var(--border, rgba(127,127,127,.3)); border-radius: 12px; font-weight: 500; }
+.agy-dictation .agy-dc-group { margin-top: 16px; }
+.agy-dictation .agy-dc-gtitle { font-size: 12px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted-foreground, #888); margin: 0 2px 8px; }
+.agy-dictation .agy-dc-opt { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; margin-top: 6px;
+  border: 1px solid var(--border, rgba(127,127,127,.3)); border-radius: 12px; cursor: pointer; }
+.agy-dictation .agy-dc-opt.on { border-color: var(--primary, #0b84ff); background: color-mix(in srgb, var(--primary, #0b84ff) 10%, transparent); }
+.agy-dictation .agy-dc-opt input { margin-top: 2px; flex: 0 0 auto; accent-color: var(--primary, #0b84ff); }
+.agy-dictation .agy-dc-optmain { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.agy-dictation .agy-dc-opthint { color: var(--muted-foreground, #888); font-size: 12px; }
+.agy-dictation .agy-dc-note { margin-top: 18px; color: var(--muted-foreground, #888); font-size: 12px; line-height: 1.4;
+  padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--foreground, #888) 6%, transparent); }
+
+/* Provider model: context badge + capability toggle chips */
+.agy-providers .agy-pv-badge { flex: 0 0 auto; font-size: 10.5px; font-weight: 600; padding: 1px 6px; border-radius: 10px;
+  color: var(--muted-foreground, #888); background: color-mix(in srgb, var(--foreground, #888) 10%, transparent); white-space: nowrap; }
+.agy-providers .agy-pv-caps { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 8px 26px; }
+.agy-providers .agy-pv-cap.on { color: var(--primary, #0b84ff);
+  background: color-mix(in srgb, var(--primary, #0b84ff) 14%, transparent); }
+.agy-providers .agy-pv-cap input { accent-color: var(--primary, #0b84ff); }
+/* Provider model details: follows the existing card and theme styles. */
+.agy-providers .agy-pv-model-info { margin-top: 8px; padding: 10px 12px; border: 1px solid var(--border, #444); border-radius: 10px; }
+.agy-providers .agy-pv-model-info > summary { cursor: pointer; font-weight: 500; }
+.agy-providers .agy-pv-model-info-row { padding: 8px 0; border-bottom: 1px solid var(--border, #444); }
+
+/* Plugins warning box ("plugins are unavailable with this auth method").
+   main.js renders it with bg-warning-background / border-warning-border /
+   text-warning-foreground — those utilities were purged from the compiled
+   Tailwind build (the box was added after the build). The box is a plain text
+   note (no action button, per user request): style the three utilities with
+   theme tokens only (var(--card) / var(--border) / var(--foreground)), so it
+   follows the selected light/dark theme. */
+.bg-warning-background {
+  background: var(--card) !important;
+  border: 1px solid var(--border, rgba(127, 127, 127, .3));
+  padding: 10px 12px !important;
+  border-radius: 10px;
+  font-size: 13px;
+}
+.border-warning-border {
+  border-color: var(--border, rgba(127, 127, 127, .3)) !important;
+}
+.text-warning-foreground {
+  color: var(--foreground);
+  line-height: 1.4;
+}
+
+
+/* Chat: full-width reasoning body and tool-step children (no left indent). */
+[class*="cursor-edit"][class*="pl-2"] { padding-left: 0 !important; }
+[class*="gap-0.5 ml-4"] { margin-left: 0 !important; }

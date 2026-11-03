@@ -1,0 +1,54 @@
+{
+  "mcpServers": {
+    "sequential-thinking": {
+      "command": "/data/user/0/com.agyru.bp/files/runtime/bin/node",
+      "args": [
+        "/data/user/0/com.agyru.bp/files/usr/lib/node_modules/@modelcontextprotocol/server-sequential-thinking/dist/index.js"
+      ],
+      "env": {
+        "LD_LIBRARY_PATH": "/data/user/0/com.agyru.bp/files/usr/lib",
+        "PATH": "/data/user/0/com.agyru.bp/files/usr/bin:/data/user/0/com.agyru.bp/files/runtime/bin:/system/bin",
+        "NODE_PATH": "/data/user/0/com.agyru.bp/files/usr/lib/node_modules"
+      }
+    },
+    "exa": {
+      "command": "/data/user/0/com.agyru.bp/files/runtime/bin/node",
+      "args": [
+        "/data/user/0/com.agyru.bp/files/usr/lib/node_modules/exa-mcp-server/dist/stdio.cjs"
+      ],
+      "env": {
+        "EXA_API_KEY": "YOUR_EXA_API_KEY",
+        "EXA_SOURCE": "antigravity",
+        "LD_LIBRARY_PATH": "/data/user/0/com.agyru.bp/files/usr/lib",
+        "PATH": "/data/user/0/com.agyru.bp/files/usr/bin:/data/user/0/com.agyru.bp/files/runtime/bin:/system/bin",
+        "NODE_PATH": "/data/user/0/com.agyru.bp/files/usr/lib/node_modules"
+      }
+    },
+    "github-mcp-server": {
+      "command": "/data/user/0/com.agyru.bp/files/runtime/bin/node",
+      "args": [
+        "/data/user/0/com.agyru.bp/files/usr/lib/node_modules/@modelcontextprotocol/server-github/dist/index.js"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "YOUR_GITHUB_PAT",
+        "LD_LIBRARY_PATH": "/data/user/0/com.agyru.bp/files/usr/lib",
+        "PATH": "/data/user/0/com.agyru.bp/files/usr/bin:/data/user/0/com.agyru.bp/files/runtime/bin:/system/bin",
+        "NODE_PATH": "/data/user/0/com.agyru.bp/files/usr/lib/node_modules"
+      }
+    },
+    "StitchMCP": {
+      "command": "/data/user/0/com.agyru.bp/files/runtime/bin/node",
+      "args": [
+        "/data/user/0/com.agyru.bp/files/usr/lib/node_modules/mcp-remote/dist/proxy.js",
+        "https://stitch.googleapis.com/mcp",
+        "--header",
+        "X-Goog-Api-Key: YOUR_API_KEY"
+      ],
+      "env": {
+        "LD_LIBRARY_PATH": "/data/user/0/com.agyru.bp/files/usr/lib",
+        "PATH": "/data/user/0/com.agyru.bp/files/usr/bin:/data/user/0/com.agyru.bp/files/runtime/bin:/system/bin",
+        "NODE_PATH": "/data/user/0/com.agyru.bp/files/usr/lib/node_modules"
+      }
+    }
+  }
+}

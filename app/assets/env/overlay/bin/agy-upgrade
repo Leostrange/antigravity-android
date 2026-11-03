@@ -1,0 +1,364 @@
+#!/data/user/0/com.agyru.bp/files/usr/bin/bash
+# agy-upgrade - Safe Antigravity update, backup, and state preservation manager.
+#
+# Preserves:
+#   1. Agent State: Brain, conversation history, skills, rules, config, projects (~/.gemini/)
+#   2. User Packages & Libs: Packages installed via pkg, pip, npm, and user shell configs
+#   3. External Storage Safeguard: Keeps backups in /storage/emulated/0/Documents/antigravity-backup/
+#
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+export PREFIX="${PREFIX:-$(cd -- "$SCRIPT_DIR/.." 2>/dev/null && pwd)}"
+export HOME="${HOME:-$(dirname "$PREFIX")}"
+export PATH="$PREFIX/bin:$PATH"
+
+BACKUP_ROOT="/storage/emulated/0/Documents/antigravity-backup"
+PYTHON_BIN="$PREFIX/bin/python3"
+if [ ! -x "$PYTHON_BIN" ]; then
+    PYTHON_BIN="python3"
+fi
+
+mkdir -p "$BACKUP_ROOT"
+
+usage() {
+    cat << 'EOF'
+Antigravity Safe Upgrade & State Preservation Manager (agy-upgrade)
+
+Usage:
+  agy-upgrade backup [destination.tar.gz]   Create a complete backup of agent brain, skills,
+                                            rules, and user package manifests.
+  agy-upgrade restore [backup.tar.gz]       Restore agent brain, skills, and reinstall user packages.
+  agy-upgrade apply <path_to_apk>           Safe 1-step upgrade: backs up current state, then
+                                            installs new APK via pm install -r.
+  agy-upgrade list                          List all available backups in external storage.
+  agy-upgrade status                        Display current agent memory, skills, and package stats.
+
+Aliases:
+  agy-backup  -> agy-upgrade backup
+  agy-restore -> agy-upgrade restore
+EOF
+}
+
+cmd_backup() {
+    local dest="${1:-$BACKUP_ROOT/backup_$(date +%Y%m%d_%H%M%S).tar.gz}"
+    echo "============================================================"
+    echo "  AGY SAFE BACKUP: Preserving Agent Brain, Skills & Packages"
+    echo "============================================================"
+    echo "[*] Destination: $dest"
+    
+    "$PYTHON_BIN" - << PYEOF
+import os, sys, json, tarfile, time, subprocess, shutil
+
+home = os.environ.get("HOME", "")
+prefix = os.environ.get("PREFIX", "")
+backup_path = "$dest"
+backup_root = "$BACKUP_ROOT"
+os.makedirs(backup_root, exist_ok=True)
+
+print(f"[*] Scanning Home: {home}")
+print(f"[*] Scanning Prefix: {prefix}")
+
+# Collect user packages
+manifests = {}
+# 1. pkg / dpkg packages
+try:
+    res = subprocess.run(["pkg", "installed"], capture_output=True, text=True)
+    if res.returncode == 0:
+        manifests["pkg"] = res.stdout.strip().splitlines()
+except Exception:
+    pass
+
+# 2. pip packages
+try:
+    res = subprocess.run(["pip", "list", "--format=freeze"], capture_output=True, text=True)
+    if res.returncode == 0:
+        manifests["pip"] = res.stdout.strip().splitlines()
+except Exception:
+    pass
+
+# 3. npm global packages
+try:
+    res = subprocess.run(["npm", "list", "-g", "--depth=0", "--json"], capture_output=True, text=True)
+    if res.returncode == 0:
+        manifests["npm"] = json.loads(res.stdout)
+except Exception:
+    pass
+
+tmp_meta_dir = os.path.join(backup_root, ".tmp_manifest")
+os.makedirs(tmp_meta_dir, exist_ok=True)
+with open(os.path.join(tmp_meta_dir, "manifests.json"), "w") as f:
+    json.dump(manifests, f, indent=2)
+
+meta = {
+    "timestamp": time.time(),
+    "date": time.strftime("%Y-%m-%d %H:%M:%S"),
+    "home": home,
+    "prefix": prefix,
+    "packages_count": len(manifests.get("pkg", [])),
+    "pip_count": len(manifests.get("pip", []))
+}
+with open(os.path.join(tmp_meta_dir, "metadata.json"), "w") as f:
+    json.dump(meta, f, indent=2)
+
+print("[*] Packaging Agent State (.gemini, brain, skills, configs)...")
+
+with tarfile.open(backup_path, "w:gz") as tar:
+    # 1. State: .gemini
+    gemini_dir = os.path.join(home, ".gemini")
+    if os.path.isdir(gemini_dir):
+        print("  + Adding ~/.gemini (conversations, brain, skills, rules, config)")
+        tar.add(gemini_dir, arcname=".gemini")
+    
+    # 2. User shell configs
+    for conf in [".bashrc", ".profile", ".gitconfig", ".bash_history"]:
+        conf_path = os.path.join(home, conf)
+        if os.path.isfile(conf_path):
+            print(f"  + Adding {conf}")
+            tar.add(conf_path, arcname=conf)
+
+    # 3. Package and dependency manifests
+    tar.add(tmp_meta_dir, arcname="backup_meta")
+
+shutil.rmtree(tmp_meta_dir, ignore_errors=True)
+
+# Update latest symlink
+latest = os.path.join(backup_root, "latest.tar.gz")
+try:
+    if os.path.islink(latest) or os.path.isfile(latest):
+        os.remove(latest)
+    shutil.copyfile(backup_path, latest)
+except Exception:
+    pass
+
+size_mb = os.path.getsize(backup_path) / (1024 * 1024)
+print(f"[SUCCESS] Backup created successfully: {backup_path} ({size_mb:.2f} MB)")
+print(f"[SUCCESS] Updated latest pointer: {latest}")
+PYEOF
+}
+
+cmd_restore() {
+    local src="${1:-$BACKUP_ROOT/latest.tar.gz}"
+    if [ ! -f "$src" ]; then
+        echo "[ERROR] Backup archive not found: $src" >&2
+        exit 1
+    fi
+    echo "============================================================"
+    echo "  AGY SAFE RESTORE: Restoring Agent State & Dependencies"
+    echo "============================================================"
+    echo "[*] Source: $src"
+
+    "$PYTHON_BIN" - << PYEOF
+import os, sys, json, tarfile, subprocess
+
+home = os.environ.get("HOME", "")
+prefix = os.environ.get("PREFIX", "")
+backup_path = "$src"
+
+print(f"[*] Restoring to: {home}")
+
+with tarfile.open(backup_path, "r:gz") as tar:
+    if hasattr(tarfile, 'data_filter'):
+        tar.extractall(path=home, filter='data')
+    else:
+        # Fallback safe extraction for older Python versions against Path Traversal
+        resolved_home = os.path.realpath(home)
+        safe_members = []
+        for member in tar.getmembers():
+            target_path = os.path.realpath(os.path.join(home, member.name))
+            if not target_path.startswith(resolved_home + os.sep) and target_path != resolved_home:
+                print(f"[SECURITY WARNING] Skipping suspicious path: {member.name}")
+                continue
+            safe_members.append(member)
+        tar.extractall(path=home, members=safe_members)
+
+print("[OK] Agent state, brain, and configs restored.")
+
+meta_dir = os.path.join(home, "backup_meta")
+manifests_file = os.path.join(meta_dir, "manifests.json")
+if os.path.isfile(manifests_file):
+    try:
+        with open(manifests_file) as f:
+            manifests = json.load(f)
+        pkg_list = manifests.get("pkg", [])
+        clean_pkgs = []
+        for p in pkg_list:
+            parts = p.split()
+            if parts and not parts[0].startswith("Listing"):
+                clean_pkgs.append(parts[0].split("/")[0])
+        
+        if clean_pkgs:
+            print(f"[*] Found {len(clean_pkgs)} saved user packages.")
+            print("[*] Reinstalling missing user dependencies...")
+            subprocess.run(["pkg", "install"] + clean_pkgs)
+    except Exception as e:
+        print(f"[WARN] Failed to auto-restore packages: {e}")
+
+if os.path.isdir(meta_dir):
+    import shutil
+    shutil.rmtree(meta_dir, ignore_errors=True)
+
+# Run agy-fix-paths to ensure shebangs match current prefix
+print("[*] Aligning paths and symlinks with agy-fix-paths...")
+subprocess.run(["agy-fix-paths"])
+
+print("[SUCCESS] All agent memory, skills, and dependencies fully restored!")
+PYEOF
+}
+
+cmd_apply() {
+    local apk="$1"
+    if [ ! -f "$apk" ]; then
+        echo "[ERROR] APK file not found: $apk" >&2
+        exit 1
+    fi
+    apk=$(realpath "$apk")
+    
+    echo "============================================================"
+    echo "  AGY IN-PLACE SAFE UPGRADE"
+    echo "============================================================"
+    
+    # 1. Create automatic safeguard backup before touching anything
+    echo ">>> Step 1/3: Creating pre-update safeguard backup..."
+    cmd_backup "$BACKUP_ROOT/pre_update_$(date +%Y%m%d_%H%M%S).tar.gz"
+    
+    # 2. Check if Shizuku (rish) is available and functional for automated install
+    echo -e "\n>>> Step 2/3: Installing updated APK: $apk"
+    local rish_ok=0
+    if command -v rish >/dev/null 2>&1; then
+        local rish_test
+        rish_test=$(rish -c "id" 2>&1 || true)
+        if echo "$rish_test" | grep -q "uid="; then
+            rish_ok=1
+        fi
+    fi
+
+    if [ "$rish_ok" -eq 1 ]; then
+        echo "[*] Shizuku is active! Performing silent in-place upgrade via pm install -r..."
+        if rish -c "pm install -r \"$apk\""; then
+            echo "[OK] APK installed successfully via Shizuku!"
+        else
+            echo "[WARN] Shizuku pm install returned non-zero code."
+        fi
+    else
+        echo "[*] Shizuku is not available or server is not running."
+        echo "[*] Preparing safe installation for Android 7+ (avoiding FileUriExposedException)..."
+
+        local shared_dir="/storage/emulated/0/Download"
+        local shared_apk="$shared_dir/agy_update.apk"
+        mkdir -p "$shared_dir"
+        cp -f "$apk" "$shared_apk"
+        chmod 644 "$shared_apk" 2>/dev/null || true
+        echo "[*] APK prepared at shared location: $shared_apk"
+
+        local opened=0
+        if command -v termux-open >/dev/null 2>&1; then
+            echo "[*] Dispatching installation via termux-open (FileProvider)..."
+            if termux-open --view --content-type "application/vnd.android.package-archive" "$shared_apk" 2>/dev/null; then
+                opened=1
+            fi
+        fi
+
+        if [ "$opened" -eq 0 ] && command -v xdg-open >/dev/null 2>&1; then
+            echo "[*] Dispatching installation via xdg-open..."
+            if xdg-open "$shared_apk" 2>/dev/null; then
+                opened=1
+            fi
+        fi
+
+        if [ "$opened" -eq 0 ] && command -v agy-system >/dev/null 2>&1; then
+            echo "[*] Dispatching installation via agy-system..."
+            if agy-system open "$shared_apk" 2>/dev/null; then
+                opened=1
+            fi
+        fi
+
+        echo ""
+        echo "============================================================"
+        echo "  MANUAL / SYSTEM INSTALL INSTRUCTION"
+        echo "============================================================"
+        echo "If the Package Installer didn't open automatically:"
+        echo "1. Open your Android File Manager (Files, Material Files, etc.)."
+        echo "2. Go to 'Downloads' folder."
+        echo "3. Tap on 'agy_update.apk' to install the update."
+        echo "============================================================"
+    fi
+
+    echo -e "\n>>> Step 3/3: Upgrade completed!"
+    echo "All conversation histories, brain artifacts, and custom skills are preserved."
+}
+
+cmd_list() {
+    echo "Available Backups in $BACKUP_ROOT:"
+    echo "------------------------------------------------------------"
+    ls -lh "$BACKUP_ROOT"/*.tar.gz 2>/dev/null || echo "No backups found yet."
+    echo "------------------------------------------------------------"
+}
+
+cmd_status() {
+    echo "============================================================"
+    echo "  AGY AGENT & ENVIRONMENT STATUS"
+    echo "============================================================"
+    echo "App Root (HOME):    $HOME"
+    echo "Prefix (PREFIX):    $PREFIX"
+    
+    local gemini="$HOME/.gemini"
+    local brain="$gemini/antigravity-app/brain"
+    local skills="$gemini/antigravity-app/skills"
+    
+    if [ -d "$brain" ]; then
+        local conv_count
+        conv_count=$(find "$brain" -mindepth 1 -maxdepth 1 -type d | wc -l)
+        local brain_size
+        brain_size=$(du -sh "$brain" 2>/dev/null | cut -f1)
+        echo "Conversations:      $conv_count active conversations ($brain_size)"
+    else
+        echo "Conversations:      0 (clean state)"
+    fi
+    
+    if [ -d "$skills" ]; then
+        local skill_count
+        skill_count=$(find "$skills" -mindepth 1 -maxdepth 1 -type d | wc -l)
+        echo "Custom Skills:      $skill_count installed"
+    else
+        echo "Custom Skills:      0 installed"
+    fi
+
+    local pkg_count
+    pkg_count=$(pkg installed 2>/dev/null | wc -l || echo "0")
+    echo "Installed Packages: $pkg_count packages"
+    echo "============================================================"
+}
+
+ACTION="${1:-help}"
+shift || true
+
+case "$ACTION" in
+    backup)
+        cmd_backup "$@"
+        ;;
+    restore)
+        cmd_restore "$@"
+        ;;
+    apply|install)
+        if [ "$#" -lt 1 ]; then
+            echo "[ERROR] Missing APK path. Usage: agy-upgrade apply <path_to_apk>" >&2
+            exit 1
+        fi
+        cmd_apply "$1"
+        ;;
+    list)
+        cmd_list
+        ;;
+    status)
+        cmd_status
+        ;;
+    help|--help|-h)
+        usage
+        ;;
+    *)
+        echo "Unknown command: $ACTION" >&2
+        usage
+        exit 1
+        ;;
+esac

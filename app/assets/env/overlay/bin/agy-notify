@@ -1,0 +1,118 @@
+#!/data/user/0/com.agyru.bp/files/usr/bin/bash
+# agy-notify - Post and manage Android notifications.
+set -e
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+PREFIX="${PREFIX:-$(cd -- "$SCRIPT_DIR/.." 2>/dev/null && pwd)}"
+RISH_BIN="$PREFIX/bin/rish"
+
+USAGE="Usage: agy-notify [post|cancel|list] [options]
+Commands:
+  post    -t <title> [-s <subtitle>] [-m <message>] [--tag <tag>]
+  cancel  <tag>
+  list    Show active notifications
+"
+
+CMD="${1:-post}"
+shift || true
+
+TITLE="Antigravity"
+SUBTITLE=""
+MESSAGE=""
+TAG="agy_$(date +%s)"
+
+if [ "$CMD" = "cancel" ]; then
+    if [ "$#" -ne 1 ] || [ -z "$1" ]; then
+        echo "agy-notify: cancel requires exactly one tag" >&2
+        echo "$USAGE" >&2
+        exit 2
+    fi
+    TAG="$1"
+    set --
+fi
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -t|--title)
+            [ "$#" -ge 2 ] || { echo "agy-notify: missing value for $1" >&2; exit 2; }
+            TITLE="$2"
+            shift 2
+            ;;
+        -s|--subtitle)
+            [ "$#" -ge 2 ] || { echo "agy-notify: missing value for $1" >&2; exit 2; }
+            SUBTITLE="$2"
+            shift 2
+            ;;
+        -m|--message)
+            [ "$#" -ge 2 ] || { echo "agy-notify: missing value for $1" >&2; exit 2; }
+            MESSAGE="$2"
+            shift 2
+            ;;
+        --tag)
+            [ "$#" -ge 2 ] || { echo "agy-notify: missing value for $1" >&2; exit 2; }
+            TAG="$2"
+            shift 2
+            ;;
+        *)
+            if [ -z "$MESSAGE" ]; then
+                MESSAGE="$1"
+            fi
+            shift
+            ;;
+    esac
+done
+
+if [ "$CMD" = "post" ]; then
+    if [ -z "$MESSAGE" ] && [ -n "$TITLE" ]; then
+        MESSAGE="$TITLE"
+        TITLE="Antigravity"
+    fi
+
+    BODY_TEXT="$MESSAGE"
+    if [ -n "$SUBTITLE" ]; then
+        BODY_TEXT="[$SUBTITLE] $MESSAGE"
+    fi
+
+    if [ -x "$RISH_BIN" ]; then
+        # Optional high-resolution logo cache with safe fallback to system default icon.
+        LOGO_CACHE="/data/local/tmp/agy_logo.png"
+        SRC_LOGO=""
+        for candidate in "${AGY_LOGO:-}" "$PREFIX/share/antigravity/logo.png" "$PREFIX/share/pixmaps/antigravity.png"; do
+            if [ -n "$candidate" ] && [ -f "$candidate" ]; then
+                SRC_LOGO="$candidate"
+                break
+            fi
+        done
+
+        LARGE_ICON_OPT=""
+        if [ -n "$SRC_LOGO" ]; then
+            if ! "$RISH_BIN" -c "test -f $LOGO_CACHE" 2>/dev/null; then
+                "$RISH_BIN" -c "cp -f $(printf %q "$SRC_LOGO") $(printf %q "$LOGO_CACHE") && chmod 644 $(printf %q "$LOGO_CACHE")" 2>/dev/null || true
+            fi
+            if "$RISH_BIN" -c "test -f $LOGO_CACHE" 2>/dev/null; then
+                LARGE_ICON_OPT="-I file://$LOGO_CACHE"
+            fi
+        fi
+
+        "$RISH_BIN" -c "cmd notification post -S bigtext $LARGE_ICON_OPT -t $(printf %q "$TITLE") $(printf %q "$TAG") $(printf %q "$BODY_TEXT")" 2>/dev/null && exit 0
+    fi
+
+    cmd notification post -S bigtext -t "$TITLE" "$TAG" "$BODY_TEXT" 2>/dev/null && exit 0 || true
+    echo "[agy-notify] notification queued: $TITLE - $MESSAGE"
+
+elif [ "$CMD" = "cancel" ]; then
+    if [ -x "$RISH_BIN" ]; then
+        "$RISH_BIN" -c "cmd notification cancel $(printf %q "$TAG")" 2>/dev/null || true
+    fi
+
+elif [ "$CMD" = "list" ]; then
+    if [ -x "$RISH_BIN" ]; then
+        "$RISH_BIN" -c "dumpsys notification --noredact" 2>/dev/null | grep -E "pkg=|android.title=|android.text=" | head -n 40
+    else
+        echo "[agy-notify] rish unavailable to inspect system notification tray"
+    fi
+
+else
+    echo "$USAGE"
+    exit 1
+fi
