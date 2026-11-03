@@ -1,4 +1,4 @@
-<p align="center"><img src="./assets/leostrange-project-banner.svg" alt="Antigravity-BP — Android-среда автономного агента" width="100%" /></p>
+<p align="center"><img src="./assets/antigravity-bp-banner.svg" alt="Antigravity-BP — русская сборка Antigravity для Android" width="100%" /></p>
 
 <p align="center">
   <a href="https://github.com/Leostrange/antigravity-android/releases/latest"><img src="https://img.shields.io/badge/Release-v2.4.1--ru-7C3AED?style=flat-square" alt="Release" /></a>
