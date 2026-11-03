@@ -1,21 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="420" viewBox="0 0 1600 420">
-  <defs>
-    <linearGradient id="mark" x1="280" y1="148" x2="280" y2="302">
-      <stop stop-color="#A855F7"/>
-      <stop offset="1" stop-color="#22D3EE"/>
-    </linearGradient>
-  </defs>
-  <rect width="1600" height="420" rx="28" fill="#05070B"/>
-  <rect x="1" y="1" width="1598" height="418" rx="27" fill="none" stroke="#273244"/>
-  <!-- emblem: rising arrow (antigravity) -->
-  <rect x="120" y="105" width="320" height="210" rx="24" fill="#0B1020" stroke="#7C3AED" stroke-width="6"/>
-  <path d="M280 148 L342 232 L306 232 L306 262 L254 262 L254 232 L218 232 Z" fill="url(#mark)"/>
-  <rect x="232" y="272" width="96" height="10" rx="5" fill="#38BDF8"/>
-  <rect x="252" y="292" width="56" height="10" rx="5" fill="#38BDF8" opacity="0.6"/>
-  <text x="356" y="300" fill="#A78BFA" font-family="monospace" font-size="44" font-weight="700">RU</text>
-  <!-- text block -->
-  <text x="560" y="170" fill="#F8FAFC" font-family="Arial,sans-serif" font-size="66" font-weight="700">ANTIGRAVITY-BP</text>
-  <text x="564" y="228" fill="#A78BFA" font-family="Arial,sans-serif" font-size="27" font-weight="600">РУССКАЯ СБОРКА ANTIGRAVITY</text>
-  <text x="564" y="292" fill="#94A3B8" font-family="Arial,sans-serif" font-size="24">ARM64 · Bionic · Shizuku · MCP · автономный агент</text>
-  <text x="1360" y="365" fill="#64748B" font-family="monospace" font-size="21">LEOSTRANGE</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="420" viewBox="0 0 1600 420" role="img" aria-labelledby="title desc">
+<title id="title">Antigravity для Android</title><desc id="desc">Русская сборка для Android</desc>
+<defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="#ad79fa"/><stop offset="1" stop-color="#52cce0"/></linearGradient></defs>
+<rect width="1600" height="420" rx="28" fill="#10121a"/><rect x="1" y="1" width="1598" height="418" rx="27" fill="none" stroke="#303244"/>
+<circle cx="215" cy="210" r="104" fill="#1b192a"/><path d="M153 266 198 153 Q215 126 232 153 L277 266 246 246 215 182 184 246Z" fill="url(#g)"/>
+<text x="370" y="185" fill="#f5f4fa" font-family="Arial,sans-serif" font-size="76" font-weight="700">Antigravity</text>
+<text x="374" y="242" fill="#c4aaf3" font-family="Arial,sans-serif" font-size="31" font-weight="600">ДЛЯ ANDROID · РУССКАЯ СБОРКА</text>
+<text x="376" y="294" fill="#9ca3b8" font-family="Arial,sans-serif" font-size="24">Локализация · провайдеры · инструменты · MCP</text>
 </svg>

@@ -1,27 +1,29 @@
-<p align="center"><img src="./assets/antigravity-bp-banner.svg" alt="Antigravity-BP — русская сборка Antigravity для Android" width="100%" /></p>
+<p align="center"><img src="assets/antigravity-bp-banner.svg" alt="Antigravity для Android — русская сборка" width="100%"></p>
+
+<p align="center"><b>Среда разработки с ИИ-агентом на Android.</b><br>Русский интерфейс, настройки безопасности, инструменты и пользовательские модели.</p>
 
 <p align="center">
-  <a href="https://github.com/Leostrange/antigravity-android/releases/latest"><img src="https://img.shields.io/badge/Release-v2.4.1--ru-7C3AED?style=flat-square" alt="Release" /></a>
-  <img src="https://img.shields.io/badge/Android-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android" />
-  <img src="https://img.shields.io/badge/ARM64-v8.0--A+-111827?style=flat-square" alt="ARM64" />
-  <img src="https://img.shields.io/badge/Русская-локализация-0033A0?style=flat-square" alt="Русская локализация" />
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-7C3AED?style=flat-square" alt="License" /></a>
+  <a href="https://github.com/Leostrange/antigravity-android/releases/tag/v2.4.1-ru"><img src="https://img.shields.io/badge/Релиз-2.4.1--ru-805ad5?style=flat-square" alt="Релиз 2.4.1-ru"></a>
+  <img src="https://img.shields.io/badge/Android-ARM64-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android ARM64">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/Лицензия-Apache_2.0-805ad5?style=flat-square" alt="Apache 2.0"></a>
 </p>
 
-<p align="center"><b>Antigravity для Android — русская сборка Antigravity-BP.</b><br/>
-Полная русификация, щит безопасности агента, темы и компактный интерфейс, вложения, инструменты и MCP-серверы.</p>
+<p align="center"><a href="https://github.com/Leostrange/antigravity-android/releases/download/v2.4.1-ru/Antigravity-BP-2.4.1-ru.fixed-ui-9-standard.apk"><b>Скачать Standard</b></a> · <a href="https://github.com/Leostrange/antigravity-android/releases/download/v2.4.1-ru/Antigravity-BP-2.4.1-ru.fixed-ui-9-bypass.apk"><b>Скачать Bypass</b></a> · <a href="https://github.com/Leostrange/antigravity-android/releases/tag/v2.4.1-ru">Все файлы релиза</a></p>
 
-<p align="center"><sub>Форк <a href="https://github.com/werdio325-png/antigravity-android">werdio325-png/antigravity-android</a> — сборка <a href="https://github.com/Leostrange">@Leostrange</a>.</sub></p>
+<p align="center"><sub>На основе <a href="https://github.com/werdio325-png/antigravity-android">werdio325-png/antigravity-android</a> · Русская сборка <a href="https://github.com/Leostrange">Leostrange</a></sub></p>
 
-<p align="center"><a href="https://github.com/Leostrange/antigravity-android/releases/tag/v2.4.1-ru"><b>Скачать APK</b></a> &nbsp;·&nbsp; <a href="https://github.com/Leostrange/antigravity-android/releases/tag/v2.4.1-ru">Исходный код</a> &nbsp;·&nbsp; <a href="CHANGELOG.md">Изменения</a> &nbsp;·&nbsp; <a href="https://github.com/Leostrange/antigravity-android/issues">Issues</a></p>
+## О проекте
 
----
+Antigravity работает в Android userspace на ARM64. Агент помогает изучать проекты, редактировать файлы, запускать команды и проверять результаты прямо на устройстве. Эта сборка добавляет русскую локализацию, компактный интерфейс и настройки работы агента.
 
-## Antigravity для Android
+## Скриншоты
 
-**Antigravity** — автономный агентный движок разработки, который работает **нативно в userspace Android** (Linux 6.1, AArch64, Bionic) внутри процесса приложения — без PRoot, QEMU и chroot. Агент на моделях Gemini сам осматривает кодовую базу, правит файлы, запускает сборку и проверяет результат прямо на устройстве.
-
-**Antigravity-BP** — русская сборка этого окружения с доработанным интерфейсом и настройками автономной работы агента. Сделана **на основе [werdio325-png/antigravity-android](https://github.com/werdio325-png/antigravity-android)** — этот репозиторий является его форком.
+<table>
+<tr><td align="center"><b>Главный экран</b></td><td align="center"><b>Модели и мышление</b></td><td align="center"><b>Щит безопасности</b></td></tr>
+<tr><td><img src="assets/screenshots/home.jpg" alt="Главный экран приложения" width="240"></td><td><img src="assets/screenshots/models.jpg" alt="Пользовательские модели и режимы мышления" width="240"></td><td><img src="assets/screenshots/shield.jpg" alt="Настройки безопасности агента" width="240"></td></tr>
+<tr><td align="center"><b>Тёмная тема</b></td><td align="center"><b>Светлая тема</b></td><td align="center"><b>Диктовка</b></td></tr>
+<tr><td><img src="assets/screenshots/dark-theme.jpg" alt="Настройки тёмной темы" width="240"></td><td><img src="assets/screenshots/light-theme.jpg" alt="Настройки светлой темы" width="240"></td><td><img src="assets/screenshots/dictation.jpg" alt="Настройки распознавания речи" width="240"></td></tr>
+</table>
 
 ## Возможности
 
@@ -38,8 +40,8 @@
 
 | Сборка | Назначение | Файл |
 |---|---|---|
-| **Standard** | базовая, без обхода региональных ограничений | [`…fixed-ui-9-standard.apk`](https://github.com/Leostrange/antigravity-android/releases/tag/v2.4.1-ru) |
-| **Bypass** | с обходом региональных ограничений (region bypass) | [`…fixed-ui-9-bypass.apk`](https://github.com/Leostrange/antigravity-android/releases/tag/v2.4.1-ru) |
+| **Standard** | базовая, без обхода региональных ограничений | [Скачать Standard](https://github.com/Leostrange/antigravity-android/releases/download/v2.4.1-ru/Antigravity-BP-2.4.1-ru.fixed-ui-9-standard.apk) |
+| **Bypass** | с обходом региональных ограничений (region bypass) | [Скачать Bypass](https://github.com/Leostrange/antigravity-android/releases/download/v2.4.1-ru/Antigravity-BP-2.4.1-ru.fixed-ui-9-bypass.apk) |
 
 Region bypass — патч Go-ядра `liblanguage_server.so`: в трёх местах байтовые проверки заменены на запись константы `1` (форс-пропуск), плюс обновляется `assets/runtime/manifest.json` с sha256 ядра. В standard-сборке стоят оригинальные инструкции, в bypass — патченые. Дельта лежит отдельно в `variants/bypass/`.
 
@@ -48,16 +50,6 @@ Region bypass — патч Go-ядра `liblanguage_server.so`: в трёх ме
 1. Скачайте APK из [релиза](https://github.com/Leostrange/antigravity-android/releases/tag/v2.4.1-ru) и сверьте SHA-256 с файлом [`SHA256SUMS.txt`](https://github.com/Leostrange/antigravity-android/releases/download/v2.4.1-ru/SHA256SUMS.txt).
 2. Установка идёт **поверх** `com.agyru.bp` — подпись совпадает, данные и сессии сохраняются.
 3. После установки перезапустите приложение. Настройки щита применяются сразу и хранятся в `config.json`.
-
-## Что нового в 2.4.1
-
-- полная русификация интерфейса и онбординг выбора языка;
-- щит безопасности с сохранением настроек и автономным режимом агента;
-- темы списков и окон, компактные меню и попапы;
-- вложения до 10 файлов с просмотром и удалением;
-- исправлена работа **MCP-серверов с кастомными провайдерами** (рекурсия shell-мостов, линковка Bionic, точки входа) — все 45 инструментов в статусе ready.
-
-Полный список: [CHANGELOG.md](CHANGELOG.md).
 
 ## MCP-серверы
 
@@ -72,7 +64,7 @@ Region bypass — патч Go-ядра `liblanguage_server.so`: в трёх ме
 2. **Плагины и MCP-серверы** в настройках пользователя также доступны только при переключённом ядре.
 3. **Кастомные модели работают только с Android Speech Cognition** (транскрибация речи через микрофон) — встроенная голосовая цепочка им недоступна, это ограничение ядра.
 
-## Состав репозитория (полный исходный код)
+## Состав репозитория
 
 ```text
 ├── README.md, CHANGELOG.md, LICENSE
