@@ -76,7 +76,7 @@ Region bypass — патч Go-ядра `liblanguage_server.so`: в трёх ме
 
 ```text
 ├── README.md, CHANGELOG.md, LICENSE
-├── assets/leostrange-project-banner.svg   общий баннер проектов Leostrange
+├── assets/antigravity-bp-banner.svg       баннер проекта (стилистика Leostrange)
 ├── app/                                   ПОЛНОЕ дерево APK без подписи
 │   ├── AndroidManifest.xml, classes*.dex, resources.arsc, res/
 │   └── assets/
