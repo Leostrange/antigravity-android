@@ -8,7 +8,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/Лицензия-Apache_2.0-805ad5?style=flat-square" alt="Apache 2.0"></a>
 </p>
 
-<p align="center"><a href="https://github.com/Leostrange/antigravity-android/releases/download/v2.4.1-ru/Antigravity-BP-2.4.1-ru.fixed-ui-9-standard.apk"><b>Скачать Standard</b></a> · <a href="https://github.com/Leostrange/antigravity-android/releases/download/v2.4.1-ru/Antigravity-BP-2.4.1-ru.fixed-ui-9-bypass.apk"><b>Скачать Bypass</b></a> · <a href="https://github.com/Leostrange/antigravity-android/releases/tag/v2.4.1-ru">Все файлы релиза</a></p>
+<p align="center"><a href="https://github.com/Leostrange/antigravity-android/releases/download/v2.4.1-ru/Antigravity-BP-standard-tools-audit.apk"><b>Скачать Standard</b></a> · <a href="https://github.com/Leostrange/antigravity-android/releases/download/v2.4.1-ru/Antigravity-BP-bypass-tools-audit.apk"><b>Скачать Bypass</b></a> · <a href="https://github.com/Leostrange/antigravity-android/releases/tag/v2.4.1-ru">Все файлы релиза</a></p>
 
 <p align="center"><sub>На основе <a href="https://github.com/werdio325-png/antigravity-android">werdio325-png/antigravity-android</a> · Русская сборка <a href="https://github.com/Leostrange">Leostrange</a></sub></p>
 
@@ -40,14 +40,14 @@ Antigravity работает в Android userspace на ARM64. Агент пом�
 
 | Сборка | Назначение | Файл |
 |---|---|---|
-| **Standard** | базовая, без обхода региональных ограничений | [Скачать Standard](https://github.com/Leostrange/antigravity-android/releases/download/v2.4.1-ru/Antigravity-BP-2.4.1-ru.fixed-ui-9-standard.apk) |
-| **Bypass** | с обходом региональных ограничений (region bypass) | [Скачать Bypass](https://github.com/Leostrange/antigravity-android/releases/download/v2.4.1-ru/Antigravity-BP-2.4.1-ru.fixed-ui-9-bypass.apk) |
+| **Standard** | базовая, без обхода региональных ограничений | [Скачать Standard](https://github.com/Leostrange/antigravity-android/releases/download/v2.4.1-ru/Antigravity-BP-standard-tools-audit.apk) |
+| **Bypass** | с обходом региональных ограничений (region bypass) | [Скачать Bypass](https://github.com/Leostrange/antigravity-android/releases/download/v2.4.1-ru/Antigravity-BP-bypass-tools-audit.apk) |
 
 Region bypass — патч Go-ядра `liblanguage_server.so`: в трёх местах байтовые проверки заменены на запись константы `1` (форс-пропуск), плюс обновляется `assets/runtime/manifest.json` с sha256 ядра. В standard-сборке стоят оригинальные инструкции, в bypass — патченые. Дельта лежит отдельно в `variants/bypass/`.
 
 ## Установка
 
-1. Скачайте APK из [релиза](https://github.com/Leostrange/antigravity-android/releases/tag/v2.4.1-ru) и сверьте SHA-256 с файлом [`SHA256SUMS.txt`](https://github.com/Leostrange/antigravity-android/releases/download/v2.4.1-ru/SHA256SUMS.txt).
+1. Скачайте APK из [релиза](https://github.com/Leostrange/antigravity-android/releases/tag/v2.4.1-ru) и сверьте SHA-256 с файлом [`SHA256SUMS-current-20261104.txt`](https://github.com/Leostrange/antigravity-android/releases/download/v2.4.1-ru/SHA256SUMS-current-20261104.txt).
 2. Установка идёт **поверх** `com.agyru.bp` — подпись совпадает, данные и сессии сохраняются.
 3. После установки перезапустите приложение. Настройки щита применяются сразу и хранятся в `config.json`.
 
@@ -86,7 +86,7 @@ Region bypass — патч Go-ядра `liblanguage_server.so`: в трёх ме
 ```
 
 > [!NOTE]
-> Полный архив исходников — [`Antigravity-BP-repo.zip`](https://github.com/Leostrange/antigravity-android/releases/tag/v2.4.1-ru) в релизе. Два файла ядра `liblanguage_server.so` (по 181 МБ) не хранятся в git из-за лимита GitHub в 100 МБ на файл — они внутри APK и в архиве исходников.
+> Архив файлов для пересборки — [`Antigravity-BP-rebuild-tree-20261104.zip`](https://github.com/Leostrange/antigravity-android/releases/tag/v2.4.1-ru) в релизе. Два файла ядра `liblanguage_server.so` (по 181 МБ) не хранятся в git из-за лимита GitHub в 100 МБ на файл — они внутри APK и в архиве для пересборки. Android-классы в архиве представлены файлами DEX; исходные Java/Kotlin-файлы отсутствуют.
 
 ## Сборка APK
 
