@@ -669,8 +669,13 @@
   var curEng = null, sawEvent = false, wdTimer = 0;
 
   function providerMode() {
-    try { var s = window.__agyProviderSpecs && window.__agyProviderSpecs(); return !!(s && s.length); }
-    catch (e) { return false; }
+    try { 
+      var s = window.__agyProviderSpecs && window.__agyProviderSpecs();
+      return !!(s && s.length); 
+    } catch (e) { 
+      console.log("[AgyMic] providerMode error:", e);
+      return false; 
+    }
   }
   function editorEl() {
     var box = document.querySelector(BOX);
@@ -766,7 +771,8 @@
   function engStart(eng) {
     curEng = eng; sawEvent = false;
     try { eng.ensurePermission && eng.ensurePermission(); } catch (e) {}
-    var r = "ERR"; try { r = eng.start(uiLang()); } catch (e) {}
+    var r = "ERR"; try { r = eng.start(uiLang()); } catch (e) { console.error("[AgyMic] eng.start error:", e); }
+    console.log("[AgyMic] engStart engine:", (eng === VOSK ? "VOSK" : "SYS"), "lang:", uiLang(), "result:", r);
     return !(typeof r === "string" && r.indexOf("ERR") === 0);
   }
   function startListening(btn) {
@@ -800,12 +806,14 @@
   }
   function toggle(btn) { if (listening) stopListening(); else startListening(btn); }
 
-  // Capture-phase: intercept the native mic tap BEFORE React, only in provider mode.
+  // Capture-phase: intercept the native mic tap BEFORE React, in all chat modes.
   document.addEventListener("click", function (e) {
-    if (!providerMode()) return;
+    if (!providerMode()) return; // Standard models use the original core transcription.
     if (dictCfg().enabled === false) return;   // voice input turned off in the Dictation tab
     var b = e.target && e.target.closest && e.target.closest(MIC_SEL);
     if (!b) return;
+    var pm = providerMode();
+    console.log("[AgyMic] Mic button tapped! providerMode:", pm, "dictCfg:", dictCfg());
     e.preventDefault();
     e.stopPropagation();
     if (e.stopImmediatePropagation) e.stopImmediatePropagation();
@@ -827,9 +835,49 @@
   });
   window.addEventListener("pagehide", function () { if (listening) hardStop(); }, true);
   window.addEventListener("blur", function () { if (listening && document.visibilityState !== "visible") hardStop(); }, true);
-  // Also stop if we are no longer in a provider-mode chat.
+  // Also stop if we are no longer in a chat.
   setInterval(function () {
     if (listening && (!providerMode() || !document.querySelector(BOX))) hardStop();
   }, 1200);
 
+})();
+
+/* Dismiss only the expired November 2026 third-party-model notice. */
+(function () {
+  var scheduled = false, seen = new WeakSet();
+  function scan() {
+    scheduled = false;
+    if (!document.body || !document.createTreeWalker) return;
+    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT), node;
+    while ((node = walker.nextNode())) {
+      var t = (node.nodeValue || '').toLowerCase();
+      if (t.indexOf('changes to third-party model access') < 0 && t.indexOf('изменения доступа к сторонним моделям') < 0) continue;
+      for (var el = node.parentElement, depth = 0; el && depth < 8 && el !== document.body; el = el.parentElement, depth++) {
+        var content = (el.textContent || '').toLowerCase();
+        if (content.indexOf('2026') < 0 || !/(november|ноябр)/i.test(content) || !/opus\s*5\.5/i.test(content) || !/sonnet\s*5\.5/i.test(content)) continue;
+        var buttons = el.querySelectorAll('button');
+        for (var i = 0; i < buttons.length; i++) {
+          var label = (buttons[i].textContent || buttons[i].getAttribute('aria-label') || '').trim().toLowerCase();
+          if ((label === 'close' || label === 'dismiss' || label === 'закрыть') && !seen.has(buttons[i])) {
+            seen.add(buttons[i]); buttons[i].click(); break;
+          }
+        }
+        break;
+      }
+    }
+  }
+  function schedule() { if (!scheduled) { scheduled = true; requestAnimationFrame(scan); } }
+  function start() {
+    new MutationObserver(function (records) {
+      for (var i = 0; i < records.length; i++) {
+        var r = records[i], nodes = r.type === 'characterData' ? [r.target] : r.addedNodes;
+        for (var j = 0; j < nodes.length; j++) {
+          var t = (nodes[j].textContent || '').toLowerCase();
+          if (t.indexOf('changes to third-party model access') >= 0 || t.indexOf('изменения доступа к сторонним моделям') >= 0) { schedule(); return; }
+        }
+      }
+    }).observe(document.body, {childList:true, subtree:true, characterData:true});
+    schedule();
+  }
+  if (document.body) start(); else document.addEventListener('DOMContentLoaded', start, {once:true});
 })();

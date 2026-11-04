@@ -1,0 +1,15 @@
+#!/system/bin/sh
+PREFIX="${PREFIX:-/data/user/0/com.agyru.bp/files/usr}"
+export PREFIX
+export TERMUX__PREFIX="$PREFIX"
+export TERMUX_APP__DATA_DIR="$(dirname "$PREFIX")"
+export LD_LIBRARY_PATH="$PREFIX/lib"
+export PATH="$PREFIX/bin:/system/bin"
+trap '' 36 37 2>/dev/null || true
+if [ -f "$PREFIX/lib/libtermux-exec.so" ]; then
+    export LD_PRELOAD="$PREFIX/lib/libtermux-exec.so"
+fi
+if [ -x "$PREFIX/bin/bash.bin" ]; then
+    exec "$PREFIX/bin/bash.bin" "$@"
+fi
+exec /system/bin/sh "$@"

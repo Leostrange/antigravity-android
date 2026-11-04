@@ -5,6 +5,7 @@
 # Machine-readable lines start with "@@" (parsed by agy_tools.js);
 # everything else is the human log shown in the UI.
 set -u
+trap '' 36 37 2>/dev/null || true
 OP="${1:-}"
 ARG="${2:-}"
 
@@ -42,6 +43,7 @@ export ANDROID_SDK_ROOT="$SDK"
 for _d in "$SDK"/ndk/*/; do [ -d "\$_d" ] && export ANDROID_NDK_HOME="\${_d%/}" ANDROID_NDK_ROOT="\${_d%/}"; done; unset _d
 [ -d "$PREFIX/lib/jvm/java-17-openjdk" ] && export JAVA_HOME="$PREFIX/lib/jvm/java-17-openjdk"
 [ -z "\${JAVA_HOME:-}" ] && [ -d "$PREFIX/lib/jvm/java-21-openjdk" ] && export JAVA_HOME="$PREFIX/lib/jvm/java-21-openjdk"
+[ -n "\${JAVA_HOME:-}" ] && [ -x "\$JAVA_HOME/bin/java" ] && export PATH="\$JAVA_HOME/bin:\$PATH"
 export GRADLE_USER_HOME="\$HOME/.gradle"
 EOF
     mkdir -p "$HOME/.gradle"
@@ -94,7 +96,7 @@ export PREFIX TERMUX__PREFIX="\$PREFIX"
 [ -f "\$PREFIX/lib/libtermux-exec.so" ] && export LD_PRELOAD="\$PREFIX/lib/libtermux-exec.so"
 export LD_LIBRARY_PATH="\$PREFIX/lib"
 export PATH="\$PREFIX/../runtime/bin:\$PREFIX/bin:/system/bin"
-case "\${TMPDIR:-}" in /data/data/com.termux*) TMPDIR="\$PREFIX/tmp" ;; *) TMPDIR="\${TMPDIR:-\$PREFIX/tmp}" ;; esac; export TMPDIR
+TMPDIR="\$PREFIX/tmp"; export TMPDIR
 export OPENSSL_CONF="\$PREFIX/etc/tls/openssl.cnf" SSL_CERT_FILE="\$PREFIX/etc/tls/cert.pem" CURL_CA_BUNDLE="\$PREFIX/etc/tls/cert.pem"
 [ -f "\$PREFIX/etc/profile.d/60-agy-android.sh" ] && . "\$PREFIX/etc/profile.d/60-agy-android.sh"
 # Resolve symlinks: scripts like ndk-build locate their resources via \$0.
@@ -103,6 +105,20 @@ EOF
     chmod 755 "$RB/$name" 2>/dev/null || true
 }
 refresh_bridges() {
+    # Restore entry points omitted by package post-install scripts when the
+    # actual executable exists. Never replace an existing working command.
+    local j target
+    for j in java javac jar keytool; do
+        if [ ! -x "$PREFIX/bin/$j" ]; then
+            for target in "$PREFIX/lib/jvm/java-17-openjdk/bin/$j" "$PREFIX/lib/jvm/java-21-openjdk/bin/$j"; do
+                if [ -x "$target" ]; then ln -sf "$target" "$PREFIX/bin/$j"; break; fi
+            done
+        fi
+    done
+    for j in npm npx; do
+        target="$PREFIX/lib/node_modules/npm/bin/$j-cli.js"
+        if [ ! -e "$PREFIX/bin/$j" ] && [ -f "$target" ]; then ln -sf "$target" "$PREFIX/bin/$j"; fi
+    done
     # SDK / NDK entry points into $PREFIX/bin first.
     local t
     for t in sdkmanager avdmanager; do
@@ -160,9 +176,31 @@ op_status() {
 op_index() { step "pkg update"; pkg update || fail "pkg update"; say "@@done"; }
 
 # ------------------------------------------------------------ install / remove / upgrade
+sync_resolver() {
+    local src="$PREFIX/../web/agy_resolver.sh" dst="$PREFIX/libexec/pkg/lib/resolver.sh"
+    [ -s "$src" ] && [ -f "$dst" ] || fail "dependency resolver is missing"
+    if ! cmp -s "$src" "$dst"; then
+        cp "$src" "$dst.agy-new" && mv -f "$dst.agy-new" "$dst" || fail "cannot update dependency resolver"
+    fi
+}
+node_package_installed() {
+    [ -f "$PREFIX/var/lib/pkg/installed/$1.meta" ] ||
+    awk -v pkg="$1" 'BEGIN{p=0} /^Package: /{p=($2==pkg)} p && /^Status: .* installed$/{found=1} END{exit !found}' "$PREFIX/var/lib/dpkg/status" 2>/dev/null
+}
+check_node_conflicts() {
+    local n
+    for n in $ARG; do
+        case "$n" in
+            nodejs-lts) if ! node_package_installed nodejs-lts && node_package_installed nodejs; then fail "Node.js current is already installed; select one version before switching"; fi ;;
+            nodejs) if ! node_package_installed nodejs && node_package_installed nodejs-lts; then fail "Node.js LTS is already installed; select one version before switching"; fi ;;
+        esac
+    done
+}
 op_install() {
     [ -n "$ARG" ] || fail "nothing to install"
     ensure_index
+    sync_resolver
+    check_node_conflicts
     step "pkg install $ARG"
     # shellcheck disable=SC2086
     if ! pkg install $ARG; then
@@ -175,15 +213,25 @@ op_install() {
         [ "$ok" = "1" ] || fail "pkg install (some packages failed)"
     fi
     case " $ARG " in
-        *" nodejs"*|*" python"*|*" yarn "*)
-            step "agy-fix-paths"; agy-fix-paths || true ;;
+        *" nodejs "*|*" nodejs-lts "*)
+            step "pkg install npm"
+            pkg install npm || fail "npm installation failed"
+            ;;
     esac
+    # pkg rewrites paths per extracted package. Rescanning the whole prefix here
+    # duplicates that work and can take minutes for large SDK/node trees.
     case " $ARG " in
         *" nodejs"*)
             npm config set prefix "$PREFIX" >/dev/null 2>&1 || true ;;
     esac
     write_env
     refresh_bridges
+    case " $ARG " in
+        *" nodejs "*|*" nodejs-lts "*)
+            "$RB/node" --version || fail "Node.js verification failed"
+            "$RB/npm" --version || fail "npm verification failed"
+            ;;
+    esac
     say "@@done"
 }
 op_remove() {
@@ -196,7 +244,8 @@ op_remove() {
 op_upgrade() {
     step "pkg update"; pkg update || fail "pkg update"
     step "pkg upgrade"; pkg upgrade || fail "pkg upgrade"
-    agy-fix-paths >/dev/null 2>&1 || true
+    # pkg upgrade rewrites each package during extraction.
+    write_env
     refresh_bridges
     say "@@done"
 }
@@ -216,7 +265,8 @@ op_npm() {
     step "npm install -g$pkgs"
     # shellcheck disable=SC2086
     npm install -g$pkgs || fail "npm install"
-    agy-fix-paths >/dev/null 2>&1 || true
+    step "Fix paths in npm tools"
+    agy-fix-paths "$PREFIX/bin" "$PREFIX/lib/node_modules" || fail "fix paths"
     refresh_bridges
     say "@@done"
 }
@@ -333,6 +383,7 @@ FIELDS = {
     "enableTerminalSandbox": "bool",
     "nonWorkspaceFileAccessPolicy": "enum",
     "internetAccessPolicy": "enum",
+    "browserJsExecutionPolicy": "enum",
 }
 try:
     with open(cfg) as f:
@@ -341,7 +392,21 @@ except Exception as e:
     print("@@error config: %s" % e)
     raise SystemExit(1)
 us = d.setdefault("userSettings", {})
-if arg:
+if arg.startswith("init,"):
+    for item in arg[5:].split(","):
+        if "=" not in item:
+            raise SystemExit(1)
+        field, val = item.split("=", 1)
+        if field not in FIELDS or not val:
+            raise SystemExit(1)
+        current = us.get(field)
+        if current is None or current == "" or (not isinstance(current, bool) and current == 0) or (isinstance(current, str) and current.endswith("_UNSPECIFIED")):
+            us[field] = (val.lower() == "true") if FIELDS[field] == "bool" else val
+    tmp = cfg + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(d, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, cfg)
+elif arg:
     if "=" not in arg:
         print("@@error usage: policy field=value")
         raise SystemExit(1)
@@ -371,14 +436,21 @@ op_verify() {
     local ok=0 bad=0
     chk() { # name, command...
         local name="$1"; shift
-        local out
-        if out="$("$@" 2>&1 | head -n 2 | tr '\n' ' ')"; then
+        local out code tmp="$PREFIX/tmp/agy-verify-$$-$name"
+        mkdir -p "$PREFIX/tmp"
+        "$@" >"$tmp" 2>&1; code=$?
+        out="$(head -n 2 "$tmp" | tr '\n' ' ')"; rm -f "$tmp"
+        if [ "$code" -eq 0 ]; then
             printf '@@ok %s %s\n' "$name" "$out"; ok=$((ok+1))
         else
             printf '@@fail %s %s\n' "$name" "$out"; bad=$((bad+1))
         fi
     }
+    write_env
+    refresh_bridges
     . "$ENVF" 2>/dev/null || true
+    export TMPDIR="$PREFIX/tmp"
+    export _JAVA_OPTIONS="${_JAVA_OPTIONS:-} -Djava.io.tmpdir=$PREFIX/tmp"
     # Run checks the way the agent does: core-like env, runtime/bin first.
     export PATH="$RB:$PREFIX/bin:/system/bin"
     unset LD_LIBRARY_PATH LD_PRELOAD
@@ -386,10 +458,17 @@ op_verify() {
     for t in ${ARG//,/ }; do
         case "$t" in
             node)    chk node node -e 'console.log("node "+process.version)' ;;
+            node-lts) chk node-lts sh -c 'v="$(node -p "process.versions.node")" || exit; meta="$PREFIX/var/lib/pkg/installed/nodejs-lts.meta"; want="$(sed -n "s/^version=//p" "$meta" | head -n1 | cut -d. -f1)"; [ -n "$want" ] && [ "${v%%.*}" = "$want" ] || { echo "active Node $v differs from installed LTS $want"; exit 1; }; echo "node $v"' ;;
+            node-current) chk node-current sh -c 'v="$(node -p "process.versions.node")" || exit; meta="$PREFIX/var/lib/pkg/installed/nodejs.meta"; want="$(sed -n "s/^version=//p" "$meta" | head -n1 | cut -d. -f1)"; [ -n "$want" ] && [ "${v%%.*}" = "$want" ] || { echo "active Node $v differs from installed version $want"; exit 1; }; echo "node $v"' ;;
             npm)     chk npm npm -v ;;
             python)  chk python python -c 'import sys;print(sys.version.split()[0])' ;;
             java)    chk java java -version ;;
             javac)   chk javac javac -version ;;
+            java17|java21|javac17|javac21)
+                local v tool
+                case "$t" in *17) v=17;; *) v=21;; esac
+                case "$t" in javac*) tool=javac;; *) tool=java;; esac
+                chk "$t" env LD_LIBRARY_PATH="$PREFIX/lib" "$PREFIX/lib/jvm/java-$v-openjdk/bin/$tool" -version ;;
             kotlin)  chk kotlin kotlinc -version ;;
             gradle)  chk gradle gradle -v --no-daemon -q ;;
             clang)   chk clang sh -c 'printf "int main(){return 0;}" > "$PREFIX/tmp/agy_t.c" && clang "$PREFIX/tmp/agy_t.c" -o "$PREFIX/tmp/agy_t" && "$PREFIX/tmp/agy_t" && echo compiled' ;;
@@ -410,6 +489,7 @@ op_verify() {
     done
     say "@@verified $ok $bad"
     say "@@done"
+    [ "$bad" -eq 0 ]
 }
 
 case "$OP" in

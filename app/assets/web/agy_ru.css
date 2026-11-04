@@ -261,6 +261,8 @@ html[data-agy-language="ru"] .capitalize {
 .agy-tools .agy-t-job.ok .agy-t-jicon { color: #1f9d55; } .agy-tools .agy-t-job.bad .agy-t-jicon { color: #d64545; }
 .agy-tools .agy-t-jlabel { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 .agy-tools .agy-t-jpct { font-variant-numeric: tabular-nums; color: var(--primary, #0b84ff); }
+.agy-tools .agy-t-jcancel { margin-left: 6px; padding: 2px 7px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border, rgba(127,127,127,.3)); background: transparent; color: var(--muted-foreground, #888); cursor: pointer; flex-shrink: 0; }
+.agy-tools .agy-t-jcancel:hover { color: #d64545; border-color: rgba(214,69,69,.5); }
 .agy-tools .agy-t-pbar { height: 6px; margin: 10px 0 8px; border-radius: 6px; overflow: hidden;
   background: color-mix(in srgb, var(--foreground, #888) 12%, transparent); }
 .agy-tools .agy-t-pfill { height: 100%; width: 0; border-radius: 6px; background: var(--primary, #0b84ff); }

@@ -33,3 +33,5 @@ export TZ="${TZ:-UTC}"
 export CFLAGS="-march=armv8-a -moutline-atomics ${CFLAGS:-}"
 export CXXFLAGS="-march=armv8-a -moutline-atomics ${CXXFLAGS:-}"
 mkdir -p "$TMPDIR" "$HOME" 2>/dev/null || true
+# Ignore Android 16 traced_perf / profiler signals in all interactive and child shells
+trap '' 36 37 2>/dev/null || true

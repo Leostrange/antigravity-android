@@ -88,8 +88,23 @@
   /* Pull the authoritative values from config.json and refresh the overlays —
      but never fight a pick the user made in the last seconds. */
   function syncFromBridge() {
-    bridgePolicy("", function (r) {
-      if (!r || !r.log) return;
+    var x = api(); if (!x) return;
+    var defaults = {file: "NON_WORKSPACE_FILE_ACCESS_POLICY", net: "INTERNET_ACCESS_POLICY", term: "CASCADE_AUTO_EXECUTION_POLICY", js: "BROWSER_JS_EXECUTION_POLICY", sbx: "ENABLE_TERMINAL_SANDBOX"};
+    var fields = [];
+    for (var id in defaults) {
+      var cfg = SECTIONS_CFG[id], value = get(defaults[id]);
+      if (cfg.bool) value = value === true;
+      else {
+        value = normEnum(value, cfg.E);
+        if (value === undefined || value === cfg.E.UNSPECIFIED || cfg.E[value] === undefined)
+          value = id === "term" ? cfg.E.OFF : id === "js" ? cfg.E.ALWAYS_ASK : cfg.E.ASK;
+      }
+      fields.push(cfg.field + "=" + cfgStr(cfg, value));
+    }
+    policyLoading = true;
+    bridgePolicy("init," + fields.join(","), function (r) {
+      policyLoading = false;
+      if (!r || !r.log || String(r.rc) !== "0") { if (pop) render(); return; }
       var changed = false;
       (String(r.log).match(/@@kv \S+ \S*/g) || []).forEach(function (line) {
         var m = /^@@kv (\S+) (\S*)$/.exec(line); if (!m) return;
@@ -128,6 +143,11 @@
     if (ovGet("file") !== undefined) file = ovGet("file");
     if (ovGet("net") !== undefined) net = ovGet("net");
     if (ovGet("js") !== undefined) js = ovGet("js");
+    // Ignore unset / obsolete cached enums rather than showing a dash.
+    if (file === undefined || file === ASP.UNSPECIFIED || ASP[file] === undefined) file = ASP.ASK;
+    if (net === undefined || net === ASP.UNSPECIFIED || ASP[net] === undefined) net = ASP.ASK;
+    if (term === undefined || term === CAE.UNSPECIFIED || CAE[term] === undefined) term = CAE.OFF;
+    if (js === undefined || js === JS.UNSPECIFIED || JS[js] === undefined) js = JS.ALWAYS_ASK;
     var presets = x.hEa[x.qq()].presets;
     var cur = x.iEa(sandbox === undefined ? false : sandbox, term, file, presets);
     var labels = x.Mt[osGroup(x)];
@@ -162,8 +182,14 @@
           // Android has no bwrap: a sandboxed command fails and falls back to
           // "run outside sandbox", which always asks. "Always proceed" therefore
           // also turns the sandbox off; "Proceed in sandbox" turns it on.
-          if (v === CAE.EAGER) set("ENABLE_TERMINAL_SANDBOX", false);
-          if (v === CAE.PROCEED_IN_SANDBOX) set("ENABLE_TERMINAL_SANDBOX", true);
+          if (v === CAE.EAGER) {
+            set("ENABLE_TERMINAL_SANDBOX", false);
+            mirrorPick("sbx", false);
+          }
+          if (v === CAE.PROCEED_IN_SANDBOX) {
+            set("ENABLE_TERMINAL_SANDBOX", true);
+            mirrorPick("sbx", true);
+          }
         } },
       { id: "sbx", title: T("Песочница", "Sandbox"), value: sandbox === true, opts: [
           { v: false, label: T("Выключена", "Off"), desc: T("Команды выполняются напрямую. Нужно для работы без подтверждений на Android.", "Commands run directly. Required for no-approval mode on Android.") },
@@ -177,7 +203,7 @@
     ];
   }
 
-  var pop = null, openId = null, unsub = null;
+  var pop = null, openId = null, unsub = null, policyLoading = false;
 
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
 
@@ -243,7 +269,8 @@
       var secs = sections(); if (!secs) return;
       var s = secs.filter(function (q) { return q.id === id; })[0];
       var o = s && s.opts[+b.getAttribute("data-i")];
-      if (!o || o.passive) return;
+      if (!o || o.passive || policyLoading) return;
+      openId = null; // Close before writing: the settings store may re-render synchronously.
       try { s.pick(o.v); } catch (err) {}
       if (s.id === "preset") {
         // preset pick writes three fields at once — mirror all of them
@@ -252,6 +279,8 @@
           mirrorPick("sbx", pp.sandboxMode === true);
           mirrorPick("term", pp.terminal);
           mirrorPick("file", pp.fileAccess);
+          if (pp.internetAccess !== undefined) mirrorPick("net", pp.internetAccess);
+          if (pp.browserJs !== undefined)      mirrorPick("js",  pp.browserJs);
         }
       } else {
         mirrorPick(s.id, o.v);
@@ -269,6 +298,7 @@
   function close() {
     if (unsub) { unsub(); unsub = null; }
     if (pop) { pop.remove(); pop = null; }
+    openId = null;
     var b = document.querySelector(".agy-shield-btn"); if (b) b.setAttribute("aria-expanded", "false");
   }
   window.__agyShieldClose = function () { if (!pop) return false; close(); return true; };

@@ -1,6 +1,7 @@
 #!/data/user/0/com.agyru.bp/files/usr/bin/bash
 # pkg -- self-written package manager for the tlx environment.
 set -uo pipefail
+trap '' 36 37 2>/dev/null || true
 
 PKG_SELF="$(cd "$(dirname "$0")" && pwd)"
 PKG_LIB="$PKG_SELF/lib"

@@ -19,8 +19,8 @@
   // kind: pkg (Termux package via pkg), npm (global npm), sdk (sdkmanager id), ndk (full NDK)
   var GROUPS = [
     { id: "node", ru: "Node.js — плагины и расширения", en: "Node.js — plugins and extensions", items: [
-      { id: "nodejs-lts", kind: "pkg", ru: "Node.js LTS + npm", en: "Node.js LTS + npm", dru: "Рекомендуется. Нужен для плагинов, MCP-серверов и расширений.", den: "Recommended. Required by plugins, MCP servers and extensions.", verify: "node,npm" },
-      { id: "nodejs", kind: "pkg", ru: "Node.js (текущая версия)", en: "Node.js (current)", dru: "Вместо LTS, если нужна самая новая версия. Не ставить вместе с LTS.", den: "Instead of LTS when the newest version is needed. Do not install together with LTS.", verify: "node,npm" },
+      { id: "nodejs-lts", kind: "pkg", ru: "Node.js LTS + npm", en: "Node.js LTS + npm", dru: "Рекомендуется. Нужен для плагинов, MCP-серверов и расширений.", den: "Recommended. Required by plugins, MCP servers and extensions.", verify: "node-lts,npm" },
+      { id: "nodejs", kind: "pkg", ru: "Node.js (текущая версия)", en: "Node.js (current)", dru: "Вместо LTS, если нужна самая новая версия. Не ставить вместе с LTS.", den: "Instead of LTS when the newest version is needed. Do not install together with LTS.", verify: "node-current,npm" },
       { id: "yarn", kind: "pkg", ru: "Yarn", en: "Yarn", dru: "Менеджер пакетов JavaScript.", den: "JavaScript package manager." },
       { id: "pnpm", kind: "npm", ru: "pnpm", en: "pnpm", dru: "Устанавливается через npm -g.", den: "Installed with npm -g.", verify: "pnpm" },
       { id: "typescript", kind: "npm", ru: "TypeScript (tsc)", en: "TypeScript (tsc)", dru: "Компилятор TypeScript через npm -g.", den: "TypeScript compiler via npm -g.", verify: "tsc" }
@@ -37,8 +37,8 @@
       { id: "python-pip", kind: "pkg", ru: "pip", en: "pip", dru: "", den: "" }
     ] },
     { id: "java", ru: "Java и Kotlin", en: "Java and Kotlin", items: [
-      { id: "openjdk-17", kind: "pkg", ru: "OpenJDK 17", en: "OpenJDK 17", dru: "Для Gradle и Android Gradle Plugin 8.x.", den: "For Gradle and Android Gradle Plugin 8.x.", verify: "java,javac" },
-      { id: "openjdk-21", kind: "pkg", ru: "OpenJDK 21", en: "OpenJDK 21", dru: "Новее; AGP 8.x работает и с 17.", den: "Newer; AGP 8.x works with 17 as well.", verify: "java,javac" },
+      { id: "openjdk-17", kind: "pkg", ru: "OpenJDK 17", en: "OpenJDK 17", dru: "Для Gradle и Android Gradle Plugin 8.x.", den: "For Gradle and Android Gradle Plugin 8.x.", verify: "java17,javac17" },
+      { id: "openjdk-21", kind: "pkg", ru: "OpenJDK 21", en: "OpenJDK 21", dru: "Новее; AGP 8.x работает и с 17.", den: "Newer; AGP 8.x works with 17 as well.", verify: "java21,javac21" },
       { id: "kotlin", kind: "pkg", ru: "Kotlin (kotlinc)", en: "Kotlin (kotlinc)", dru: "", den: "", verify: "kotlin" },
       { id: "gradle", kind: "pkg", ru: "Gradle", en: "Gradle", dru: "Сборка Android-проектов.", den: "Builds Android projects.", verify: "gradle" },
       { id: "maven", kind: "pkg", ru: "Maven", en: "Maven", dru: "", den: "" }
@@ -136,19 +136,28 @@
       return;
     }
     job = { id: id, op: q.op, arg: q.arg, label: q.label, log: "", rc: "", after: q.after, t0: Date.now() };
-    store("agyToolsJob", JSON.stringify({ id: id, op: q.op, arg: q.arg, label: q.label }));
+    lastLogChange = Date.now();
+    store("agyToolsJob", JSON.stringify({ id: id, op: q.op, arg: q.arg, label: q.label, t0: job.t0 }));
 
     poll();
   }
   var pollTimer = 0;
+  var lastLogChange = 0;
   function poll() {
     clearTimeout(pollTimer);
     if (!job || !job.id) return;
     var b = bridge(); if (!b) return;
     var r = {};
     try { r = JSON.parse(b.read(job.id) || "{}"); } catch (e) {}
+    var prevLen = (job.log || "").length;
     job.log = r.log || job.log || "";
+    if (job.log.length !== prevLen) lastLogChange = Date.now();
     if (r.rc !== undefined && r.rc !== "") { job.rc = r.rc; finish(); return; }
+    var now = Date.now();
+    var jobAge = job.t0 ? (now - job.t0) : 0;
+    var stallTime = lastLogChange ? (now - lastLogChange) : jobAge;
+    // Silent package and SDK operations may take minutes. A UI-only timeout
+    // cannot stop the native process and must not start the next queued job.
     renderLog();
     pollTimer = setTimeout(poll, job.op === "status" ? 400 : 700);
   }
@@ -156,17 +165,22 @@
     var j = job;
     store("agyToolsJob", null);
     parse(j);
+    if (j.rc !== "0" && !QUIET[j.op]) {
+      // Stop subsequent changes; still refresh the actual installed state.
+      queue = queue.filter(function (q) { return q.op === "status"; });
+    }
     if ((j.op !== "status" && j.op !== "verify") || j.rc !== "0") {
       j.done = true;
-      lastDone = j;
+      if (hiddenJob !== j || j.rc !== "0") lastDone = j;
       if (j.rc !== "0") logOpen = true;
     }
+    if (hiddenJob === j) hiddenJob = null;
     if (typeof j.after === "function") { try { j.after(j); } catch (e) {} }
     job = null;
     next();
     render();
   }
-  var lastDone = null;
+  var lastDone = null, hiddenJob = null;
 
   function parse(j) {
     if (j.op === "status") special = { cmdline: false, platforms: {}, buildtools: {}, ndk: [] };
@@ -234,12 +248,18 @@
   }
 
   /* ------------------------------------------------------------ render */
+  function verified(it) {
+    if (!installed(it)) return false;
+    if (!it.verify) return true;
+    return it.verify.split(",").every(function (v) { return checks[v] && checks[v].ok; });
+  }
   function badge(it) {
     if (job && job.arg && (" " + job.arg.replace(/,/g, " ") + " ").indexOf(" " + it.id + " ") >= 0 && /install|sdk|npm/.test(job.op))
       return '<span class="agy-t-badge run">' + esc(T("Устанавливается…", "Installing…")) + "</span>";
     if (it.kind === "pkg") {
       var s = status[it.id];
       if (!loaded || !s) return '<span class="agy-t-badge">…</span>';
+      if (s.inst !== "-" && it.verify && it.verify.split(",").some(function (v) { return checks[v] && !checks[v].ok; })) return '<span class="agy-t-badge off">' + esc(T("Ошибка проверки", "Check failed")) + "</span>";
       if (s.inst !== "-") return '<span class="agy-t-badge ok">' + esc(T("Установлено ", "Installed ") + s.inst) + "</span>";
       if (s.avail === "-") return '<span class="agy-t-badge off">' + esc(T("Нет в репозитории", "Not in repository")) + "</span>";
       return '<span class="agy-t-badge">' + esc(T("Доступно ", "Available ") + s.avail) + "</span>";
@@ -268,11 +288,11 @@
       '<button type="button" data-act="upgrade"' + (busy ? " disabled" : "") + ">" + esc(T("Обновить всё", "Upgrade all")) + "</button></div></div>";
 
     h += '<div class="agy-t-job" hidden>' +
-      '<div class="agy-t-jtop"><span class="agy-t-jicon"></span><span class="agy-t-jlabel"></span><span class="agy-t-jpct"></span></div>' +
+      '<div class="agy-t-jtop"><span class="agy-t-jicon"></span><span class="agy-t-jlabel"></span><span class="agy-t-jpct"></span><button type="button" class="agy-t-jcancel" data-act="cancel-job" title="' + esc(T("Закрыть окно", "Close panel")) + '">✕</button></div>' +
       '<div class="agy-t-pbar"><div class="agy-t-pfill"></div></div>' +
       '<div class="agy-t-jrow"><span class="agy-t-jphase"></span><span class="agy-t-jtime"></span></div>' +
       '<div class="agy-t-jfacts"></div>' +
-      '<div class="agy-t-jrow"><span class="agy-t-jtail"></span><button type="button" class="agy-t-jlog" data-act="log"></button></div>' +
+      '<div class="agy-t-jrow"><span class="agy-t-jtail"></span><button type="button" class="agy-t-jlog" data-act="log"></button><button type="button" data-act="copy-log">' + esc(T("Копировать", "Copy")) + '</button></div>' +
       '<pre class="agy-t-log" hidden></pre></div>';
     if (loaded && !hasIndex) h += '<div class="agy-t-warn">' + esc(T("Список пакетов ещё не загружен — состояние неполное.", "Package list is not downloaded yet — status is incomplete.")) +
       ' <button type="button" class="agy-t-btn" data-act="index"' + (busy ? " disabled" : "") + ">" + esc(T("Загрузить", "Download")) + "</button></div>";
@@ -280,7 +300,7 @@
 
     h += '<div class="agy-t-sec">' + esc(T("Готовые наборы", "Presets")) + "</div>";
     PRESETS.forEach(function (p) {
-      var all = p.items.every(function (id) { var it = ITEMS[id]; return it && ((it.kind === "pkg" && !availability(it)) || installed(it)); });
+      var all = p.items.every(function (id) { var it = ITEMS[id]; return it && verified(it); });
       h += '<div class="agy-t-card"><div class="agy-t-main"><div class="agy-t-name">' + esc(T(p.ru, p.en)) + '</div><div class="agy-t-desc">' + esc(T(p.dru, p.den)) + "</div></div>" +
         (all ? '<span class="agy-t-badge ok">' + esc(T("Готово", "Ready")) + "</span>"
              : '<button type="button" class="agy-t-btn" data-preset="' + p.id + '"' + (busy ? " disabled" : "") + ">" + esc(T("Установить", "Install")) + "</button>") + "</div>";
@@ -297,7 +317,7 @@
           '<div class="agy-t-main"><div class="agy-t-name">' + esc(T(it.ru, it.en)) + " " + badge(it) + "</div>" +
           (T(it.dru, it.den) ? '<div class="agy-t-desc">' + esc(T(it.dru, it.den)) + "</div>" : "") + checkLine(it) + "</div>" +
           (inst && it.kind !== "npm"
-            ? '<button type="button" class="agy-t-btn sec" data-rm="' + esc(it.id) + '"' + (busy ? " disabled" : "") + ">" + esc(T("Удалить", "Remove")) + "</button>"
+            ? ((it.verify && it.verify.split(",").some(function(v) { return checks[v] && !checks[v].ok; })) ? '<button type="button" class="agy-t-btn" data-in="' + esc(it.id) + '"' + (busy ? " disabled" : "") + ">" + esc(T("Починить", "Repair")) + "</button>" : '<button type="button" class="agy-t-btn sec" data-rm="' + esc(it.id) + '"' + (busy ? " disabled" : "") + ">" + esc(T("Удалить", "Remove")) + "</button>")
             : (!inst && av ? '<button type="button" class="agy-t-btn" data-in="' + esc(it.id) + '"' + (busy ? " disabled" : "") + ">" + esc(T("Установить", "Install")) + "</button>" : "")) +
           "</div>";
       });
@@ -357,10 +377,11 @@
     if (!root || !root.isConnected) return;
     var panel = root.querySelector(".agy-t-job");
     if (!panel) return;
-    var j = job && !QUIET[job.op] ? job : lastDone;
+    var j = job && !QUIET[job.op] ? (hiddenJob === job ? null : job) : lastDone;
     if (!j) { panel.hidden = true; return; }
     panel.hidden = false;
-    var running = j === job;
+    var checking = !!(job && job.op === "verify" && j === lastDone && j.rc === "0");
+    var running = j === job || checking;
     var ok = !running && j.rc === "0";
     panel.className = "agy-t-job" + (running ? " run" : ok ? " ok" : " bad");
     var pr = running ? progress(j) : { pct: ok ? 100 : -1, phase: "", facts: [] };
@@ -368,7 +389,7 @@
     panel.querySelector(".agy-t-jicon").textContent = running ? ["◐", "◓", "◑", "◒"][tick] : ok ? "✓" : "✗";
     panel.querySelector(".agy-t-jlabel").textContent = j.label;
     panel.querySelector(".agy-t-jpct").textContent = running && pr.pct >= 0 ? pr.pct + "%" : "";
-    panel.querySelector(".agy-t-jphase").textContent = running ? (pr.phase || T("Выполняется…", "Running…"))
+    panel.querySelector(".agy-t-jphase").textContent = checking ? T("Проверка компонентов…", "Checking components…") : running ? (pr.phase || T("Выполняется…", "Running…"))
       : ok ? T("Готово", "Done") : T("Ошибка — откройте журнал", "Failed — open the log");
     panel.querySelector(".agy-t-jtime").textContent = running ? elapsed(j) + (queue.filter(function (q) { return !QUIET[q.op]; }).length ? T(" · ещё в очереди: ", " · queued: ") + queue.filter(function (q) { return !QUIET[q.op]; }).length : "") : "";
     panel.querySelector(".agy-t-jfacts").textContent = pr.facts.join("  ");
@@ -397,9 +418,28 @@
     else if (act === "install-sel") { var ids = Object.keys(selected).filter(function (k) { return selected[k]; }); selected = {}; installIds(ids); }
     else if (act === "index") { run("index", "", T("Загрузка списка пакетов", "Downloading package list")); refresh(false); }
     else if (act === "log") { logOpen = !logOpen; renderLog(); }
+    else if (act === "copy-log") {
+      var shown = job && !QUIET[job.op] ? job : lastDone;
+      var txt = shown ? cleanLog(shown.log || "") : "";
+      if (!txt) return;
+      var area = document.createElement("textarea"); area.value = txt;
+      area.setAttribute("readonly", ""); area.style.position = "fixed"; area.style.left = "-9999px";
+      document.body.appendChild(area); area.select();
+      var copied = false; try { copied = document.execCommand("copy"); } catch (_) {}
+      area.remove();
+      if (!copied) { logOpen = true; renderLog(); alert(T("Не удалось скопировать. Выделите текст журнала вручную.", "Copy failed. Select the log text manually.")); }
+      else { b.textContent = T("Скопировано", "Copied"); }
+    }
+    else if (act === "cancel-job") {
+      // Closing the panel must not cancel a running operation or its follow-up checks.
+      if (job && !QUIET[job.op]) hiddenJob = job;
+      else lastDone = null;
+      logOpen = false;
+      render();
+    }
     else if (b.getAttribute("data-preset")) {
       var p = PRESETS.filter(function (x) { return x.id === b.getAttribute("data-preset"); })[0];
-      if (p) installIds(p.items.filter(function (id) { return ITEMS[id] && !installed(ITEMS[id]); }));
+      if (p) installIds(p.items.filter(function (id) { return ITEMS[id] && !verified(ITEMS[id]); }));
     }
     else if (b.getAttribute("data-in")) installIds([b.getAttribute("data-in")]);
     else if (b.getAttribute("data-rm")) removeId(b.getAttribute("data-rm"));
@@ -418,7 +458,12 @@
     if (!job) {
       var saved = null;
       try { saved = JSON.parse(store("agyToolsJob") || "null"); } catch (e) {}
-      if (saved && saved.id && bridge()) { job = { id: saved.id, op: saved.op, arg: saved.arg, label: saved.label, log: "", rc: "" }; logOpen = true; poll(); }
+      if (saved && saved.id && bridge()) {
+        job = { id: saved.id, op: saved.op, arg: saved.arg, label: saved.label, log: "", rc: "", t0: saved.t0 || Date.now() };
+        lastLogChange = Date.now();
+        logOpen = true;
+        poll();
+      }
     }
     render();
     if (!loaded) loadCache();
