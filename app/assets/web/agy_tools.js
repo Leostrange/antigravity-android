@@ -113,7 +113,7 @@
 
   function installed(it) {
     if (it.kind === "pkg") { var s = status[it.id]; return !!(s && s.inst && s.inst !== "-"); }
-    if (it.kind === "sdk") { var p = it.id.split(";"); return p[0] === "platforms" ? !!special.platforms[p[1]] : !!special.buildtools[p[1]]; }
+    if (it.kind === "sdk") { var p = it.id.split(";"); return (p[0] === "platforms" ? special.platforms[p[1]] : special.buildtools[p[1]]) === true; }
     if (it.kind === "ndk") return special.ndk.length > 0;
     if (it.kind === "npm") { var n = status["npm:" + it.id]; return !!(n && n.inst); }
     return false;
@@ -194,8 +194,8 @@
       var m;
       if ((m = /^@@pkg (\S+) (\S+) (\S+)/.exec(line))) status[m[1]] = { avail: m[2], inst: m[3] };
       else if ((m = /^@@special cmdline-tools (\S+)/.exec(line))) special.cmdline = m[1] === "ok";
-      else if ((m = /^@@special platform (\S+)/.exec(line))) special.platforms[m[1]] = true;
-      else if ((m = /^@@special build-tools (\S+)/.exec(line))) special.buildtools[m[1]] = true;
+      else if ((m = /^@@special platform (\S+)(?: (\S+))?/.exec(line))) special.platforms[m[1]] = m[2] === "incomplete" ? "incomplete" : true;
+      else if ((m = /^@@special build-tools (\S+)(?: (\S+))?/.exec(line))) special.buildtools[m[1]] = m[2] === "incomplete" ? "incomplete" : true;
       else if ((m = /^@@special ndk (\S+)/.exec(line))) { if (special.ndk.indexOf(m[1]) < 0) special.ndk.push(m[1]); }
       else if ((m = /^@@(ok|fail) (\S+) ?(.*)$/.exec(line))) checks[m[2]] = { ok: m[1] === "ok", text: m[3] };
       else if ((m = /^@@npm (\S+) (\S+)/.exec(line))) status["npm:" + m[1]] = { inst: m[2] !== "-" };
@@ -271,6 +271,7 @@
       return '<span class="agy-t-badge">' + esc(T("Доступно ", "Available ") + s.avail) + "</span>";
     }
     if (!loaded) return '<span class="agy-t-badge">…</span>';
+    if (it.kind === "sdk") { var p = it.id.split(";"); if ((p[0] === "platforms" ? special.platforms[p[1]] : special.buildtools[p[1]]) === "incomplete") return '<span class="agy-t-badge off">' + esc(T("Не хватает файлов", "Missing files")) + '</span>'; }
     return installed(it) ? '<span class="agy-t-badge ok">' + esc(T("Установлено", "Installed")) + "</span>"
                          : '<span class="agy-t-badge">' + esc(T("Не установлено", "Not installed")) + "</span>";
   }
@@ -339,8 +340,9 @@
   var QUIET = { status: 1, verify: 1 };
   // Log text: drop machine lines and curl "####" bars; keep the last state of \r-lines.
   function cleanLog(raw) {
-    return (raw || "").split("\n").map(function (l) { var p = l.split("\r"); return p[p.length - 1]; })
-      .filter(function (l) { return !/^@@/.test(l) && !/^[#\s]*(\d{1,3}[.,]\d%?|\d{1,3}%)?\s*$/.test(l) && !/^#{3,}/.test(l); }).join("\n");
+    return (raw || "").split("\n").map(function (l) { var p = l.split("\r"); while (p.length && !p[p.length - 1].trim()) p.pop(); return p.pop() || ""; })
+      .map(function (l) { return l.replace(/^@@fail\s+/, "Ошибка: ").replace(/^@@error\s+/, "Ошибка: "); })
+      .filter(function (l) { return !/^@@/.test(l) && !/^[#\s]*(\d{1,3}(?:[.,]\d+)?%?)?\s*$/.test(l) && !/^#{3,}/.test(l); }).join("\n");
   }
   // Progress model from pkg / curl / sdkmanager output.
   function progress(j) {
@@ -351,7 +353,7 @@
     var size = (/Need to get ([^\n]+?) of archives/.exec(raw) || [])[1];
     var gets = (raw.match(/^Get:\d+ /gm) || []).length;
     var sets = raw.match(/^Setting up (\S+)/gm) || [];
-    var pcts = raw.match(/(\d{1,3}[.,]\d)%/g) || [];
+    var pcts = raw.match(/\d{1,3}(?:[.,]\d+)?%/g) || [];
     var cur = pcts.length ? parseFloat(pcts[pcts.length - 1].replace(",", ".")) : 0;
     if (/install|upgrade/.test(j.op) && total) {
       var dl = Math.max(0, gets - 1) + (gets ? Math.min(1, cur / 100) : 0);
@@ -479,4 +481,5 @@
     if (!job && (!c || Date.now() - c.t > 120000)) refresh(false);
   };
 })();
+
 

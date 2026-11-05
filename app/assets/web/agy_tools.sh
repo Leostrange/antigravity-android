@@ -192,8 +192,14 @@ op_status() {
     [ -n "$(ls "$IDX"/repo.*.tsv 2>/dev/null)" ] && say "@@index ok" || say "@@index -"
     [ -x "$SDK/cmdline-tools/latest/bin/sdkmanager" ] && say "@@special cmdline-tools ok" || say "@@special cmdline-tools -"
     local p
-    for p in "$SDK"/platforms/android-*; do [ -d "$p" ] && say "@@special platform $(basename "$p")"; done
-    for p in "$SDK"/build-tools/*; do [ -d "$p" ] && say "@@special build-tools $(basename "$p")"; done
+    for p in "$SDK"/platforms/android-*; do
+        [ -d "$p" ] || continue
+        if [ -s "$p/android.jar" ] && [ -s "$p/source.properties" ]; then say "@@special platform $(basename "$p")"; else say "@@special platform $(basename "$p") incomplete"; fi
+    done
+    for p in "$SDK"/build-tools/*; do
+        [ -d "$p" ] || continue
+        if [ -s "$p/source.properties" ] && [ -s "$p/lib/d8.jar" ] && [ -s "$p/core-lambda-stubs.jar" ]; then say "@@special build-tools $(basename "$p")"; else say "@@special build-tools $(basename "$p") incomplete"; fi
+    done
     for p in "$SDK"/ndk/*; do [ -d "$p" ] && say "@@special ndk $(basename "$p")"; done
     command -v pnpm >/dev/null 2>&1 && say "@@npm pnpm ok" || say "@@npm pnpm -"
     command -v tsc  >/dev/null 2>&1 && say "@@npm typescript ok" || say "@@npm typescript -"
@@ -329,6 +335,13 @@ op_sdk() {
     # shellcheck disable=SC2086
     bash "$SDK/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK" $comps || fail "sdkmanager"
     refresh_bridges
+    local component dir
+    for component in $comps; do
+        case "$component" in
+            platforms\;*) dir="$SDK/platforms/${component#*;}"; [ -s "$dir/android.jar" ] && [ -s "$dir/source.properties" ] || fail "$component: missing android.jar or source.properties" ;;
+            build-tools\;*) dir="$SDK/build-tools/${component#*;}"; [ -s "$dir/source.properties" ] && [ -s "$dir/lib/d8.jar" ] && [ -s "$dir/core-lambda-stubs.jar" ] || fail "$component: missing SDK files; installation needs inspection" ;;
+        esac
+    done
     say "@@done"
 }
 op_sdkremove() {
@@ -450,6 +463,17 @@ PY
 # ------------------------------------------------------------ verify
 op_verify() {
     local ok=0 bad=0
+    verify_aidl() {
+        local dir rc
+        dir="$(mktemp -d "$PREFIX/tmp/agy-aidl-XXXXXX")" || return 1
+        mkdir -p "$dir/com/agytest" "$dir/out" || { rm -rf "$dir"; return 1; }
+        printf 'package com.agytest; interface ITest { int getVersion(); }\n' > "$dir/com/agytest/ITest.aidl"
+        aidl -I"$dir" "$dir/com/agytest/ITest.aidl" -o "$dir/out"
+        rc=$?
+        if [ "$rc" -eq 0 ] && [ -s "$dir/out/com/agytest/ITest.java" ]; then echo "AIDL compilation succeeded"; else rc=1; echo "AIDL compilation failed or output is missing"; fi
+        rm -rf "$dir"
+        return "$rc"
+    }
     chk() { # name, command...
         local name="$1"; shift
         local out code tmp="$PREFIX/tmp/agy-verify-$$-$name"
@@ -492,7 +516,7 @@ op_verify() {
             git)     chk git git --version ;;
             aapt)    chk aapt aapt version ;;
             aapt2)   chk aapt2 aapt2 version ;;
-            aidl)    chk aidl aidl --version ;;
+            aidl)    chk aidl verify_aidl ;;
             zipalign) chk zipalign sh -c 'zipalign 2>&1 | grep -q "Zip alignment utility"' ;;
             d8)      chk d8 d8 --version ;;
             apksigner) chk apksigner apksigner --version ;;
@@ -526,4 +550,5 @@ case "$OP" in
     verify)    op_verify ;;
     *)         fail "unknown op: $OP" ;;
 esac
+
 
