@@ -46,7 +46,7 @@ for _d in "$SDK"/ndk/*/; do [ -d "\$_d" ] && export ANDROID_NDK_HOME="\${_d%/}" 
 [ -n "\${JAVA_HOME:-}" ] && [ -x "\$JAVA_HOME/bin/java" ] && export PATH="\$JAVA_HOME/bin:\$PATH"
 export GRADLE_USER_HOME="\$HOME/.gradle"
 EOF
-    mkdir -p "$HOME/.gradle"
+    mkdir -p "$HOME/.gradle" "$PREFIX/tmp"
     local gp="$HOME/.gradle/gradle.properties"
     touch "$gp"
     if [ -x "$PREFIX/bin/aapt2" ]; then
@@ -56,6 +56,14 @@ EOF
     fi
     grep -q '^org.gradle.daemon=' "$gp" || printf 'org.gradle.daemon=false\n' >> "$gp"
     grep -q '^org.gradle.jvmargs=' "$gp" || printf 'org.gradle.jvmargs=-Xmx1536m\n' >> "$gp"
+    # Keep existing JVM options and add only missing Android-specific paths.
+    local gp_tmp="$gp.agy-tmp-$$"
+    awk -v tmp="$PREFIX/tmp" -v home="$HOME" '
+      /^org[.]gradle[.]jvmargs=/ {
+        if ($0 !~ /(^|[[:space:]])-Djava[.]io[.]tmpdir=/) $0=$0 " -Djava.io.tmpdir=" tmp
+        if ($0 !~ /(^|[[:space:]])-Duser[.]home=/) $0=$0 " -Duser.home=" home
+      } {print}
+    ' "$gp" > "$gp_tmp" && mv "$gp_tmp" "$gp" || { rm -f "$gp_tmp"; fail "update Gradle JVM paths"; }
     # Let the agent know where everything is.
     if [ -f "$AGENTS" ] && ! grep -q 'AGY-TOOLS-ANDROID' "$AGENTS"; then
         cat >> "$AGENTS" <<EOF
@@ -78,7 +86,7 @@ EOF
 # scripts with "#!/usr/bin/env" / "#!/bin/sh" shebangs, which do not exist on
 # Android) need bridges of their own; the Android/Java env is loaded in each.
 RB="$PREFIX/../runtime/bin"
-BRIDGED="node npm npx corepack yarn pnpm pnpx tsc tsserver java javac jar keytool kotlin kotlinc gradle mvn sdkmanager avdmanager ndk-build aapt aapt2 d8 apksigner zipalign adb apktool jadx"
+BRIDGED="node npm npx corepack yarn pnpm pnpx tsc tsserver java javac jar keytool kotlin kotlinc gradle mvn sdkmanager avdmanager ndk-build aapt aapt2 aidl d8 apksigner zipalign adb apktool jadx"
 make_bridge() { # name
     local name="$1" target="$PREFIX/bin/$1" first runner=""
     [ -e "$target" ] || return 0
@@ -104,6 +112,23 @@ exec $runner"\$(readlink -f "\$PREFIX/bin/$name")" "\$@"
 EOF
     chmod 755 "$RB/$name" 2>/dev/null || true
 }
+refresh_build_tools() {
+    local bt t dest target
+    for bt in "$SDK"/build-tools/*; do
+        [ -d "$bt" ] || continue
+        for t in aapt aapt2 aidl zipalign d8 apksigner; do
+            target="$PREFIX/bin/$t"; dest="$bt/$t"
+            [ -x "$target" ] || continue
+            [ "$(readlink "$dest" 2>/dev/null || true)" = "$target" ] && continue
+            # Preserve original SDK executables or user-created wrappers once.
+            if [ -e "$dest" ] && [ ! -L "$dest" ] && [ ! -e "$dest.agy-original" ]; then
+                cp -p "$dest" "$dest.agy-original" || fail "backup $dest"
+            fi
+            ln -sf "$target" "$dest.agy-new" || fail "prepare $dest"
+            mv -f "$dest.agy-new" "$dest" || fail "update $dest"
+        done
+    done
+}
 refresh_bridges() {
     # Restore entry points omitted by package post-install scripts when the
     # actual executable exists. Never replace an existing working command.
@@ -125,6 +150,7 @@ refresh_bridges() {
         [ -e "$SDK/cmdline-tools/latest/bin/$t" ] && ln -sf "$SDK/cmdline-tools/latest/bin/$t" "$PREFIX/bin/$t"
     done
     for t in "$SDK"/ndk/*/ndk-build; do [ -e "$t" ] && ln -sf "$t" "$PREFIX/bin/ndk-build"; done
+    refresh_build_tools
     local n
     for n in $BRIDGED; do make_bridge "$n"; done
     # npm globals that are not in the list (new CLIs) get bridges too.
@@ -302,16 +328,6 @@ op_sdk() {
     step "sdkmanager $comps"
     # shellcheck disable=SC2086
     bash "$SDK/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK" $comps || fail "sdkmanager"
-    # build-tools binaries from Google are x86_64: replace them with native ones.
-    local bt t
-    for bt in "$SDK"/build-tools/*; do
-        [ -d "$bt" ] || continue
-        for t in aapt aapt2 zipalign aidl; do
-            if [ -x "$PREFIX/bin/$t" ]; then
-                rm -f "$bt/$t"; ln -s "$PREFIX/bin/$t" "$bt/$t"
-            fi
-        done
-    done
     refresh_bridges
     say "@@done"
 }
@@ -474,7 +490,10 @@ op_verify() {
             clang)   chk clang sh -c 'printf "int main(){return 0;}" > "$PREFIX/tmp/agy_t.c" && clang "$PREFIX/tmp/agy_t.c" -o "$PREFIX/tmp/agy_t" && "$PREFIX/tmp/agy_t" && echo compiled' ;;
             cmake)   chk cmake cmake --version ;;
             git)     chk git git --version ;;
+            aapt)    chk aapt aapt version ;;
             aapt2)   chk aapt2 aapt2 version ;;
+            aidl)    chk aidl aidl --version ;;
+            zipalign) chk zipalign sh -c 'zipalign 2>&1 | grep -q "Zip alignment utility"' ;;
             d8)      chk d8 d8 --version ;;
             apksigner) chk apksigner apksigner --version ;;
             adb)     chk adb adb version ;;
@@ -507,3 +526,4 @@ case "$OP" in
     verify)    op_verify ;;
     *)         fail "unknown op: $OP" ;;
 esac
+

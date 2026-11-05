@@ -44,8 +44,9 @@
       { id: "maven", kind: "pkg", ru: "Maven", en: "Maven", dru: "", den: "" }
     ] },
     { id: "android", ru: "Android: сборка APK", en: "Android: APK build", items: [
-      { id: "aapt", kind: "pkg", ru: "aapt", en: "aapt", dru: "Упаковка ресурсов (старый).", den: "Resource packaging (legacy)." },
+      { id: "aapt", kind: "pkg", ru: "aapt + zipalign", en: "aapt + zipalign", dru: "Упаковка ресурсов и выравнивание APK; zipalign входит в пакет aapt.", den: "Resource packaging and APK alignment; zipalign is included in aapt.", verify: "aapt,zipalign" },
       { id: "aapt2", kind: "pkg", ru: "aapt2", en: "aapt2", dru: "Нативный aapt2 — Gradle использует его вместо x86-версии.", den: "Native aapt2 — Gradle uses it instead of the x86 build.", verify: "aapt2" },
+      { id: "aidl", kind: "pkg", ru: "aidl", en: "aidl", dru: "Нативный компилятор интерфейсов AIDL.", den: "Native AIDL interface compiler.", verify: "aidl" },
       { id: "d8", kind: "pkg", ru: "d8", en: "d8", dru: "Компиляция в DEX.", den: "DEX compiler.", verify: "d8" },
       { id: "apksigner", kind: "pkg", ru: "apksigner", en: "apksigner", dru: "Подпись APK v1–v4.", den: "APK signing v1–v4.", verify: "apksigner" },
       { id: "android-tools", kind: "pkg", ru: "adb / fastboot", en: "adb / fastboot", dru: "Отладка по Wi-Fi и через Shizuku.", den: "Debugging over Wi-Fi and via Shizuku.", verify: "adb" },
@@ -53,8 +54,13 @@
       { id: "jadx", kind: "pkg", ru: "jadx", en: "jadx", dru: "Декомпилятор DEX → Java.", den: "DEX → Java decompiler." }
     ] },
     { id: "sdk", ru: "Android SDK", en: "Android SDK", note: { ru: "Загружается с dl.google.com через sdkmanager. Нужен OpenJDK — поставится сам. x86-бинарники build-tools заменяются нативными aapt/aapt2/zipalign.", en: "Downloaded from dl.google.com with sdkmanager. Needs OpenJDK (installed automatically). x86 build-tools binaries are replaced with native aapt/aapt2/zipalign." }, items: [
+      { id: "platforms;android-37.1", kind: "sdk", ru: "Платформа Android API 37.1", en: "Android platform API 37.1", dru: "", den: "" },
+      { id: "platforms;android-37.0", kind: "sdk", ru: "Платформа Android API 37.0", en: "Android platform API 37.0", dru: "", den: "" },
+      { id: "platforms;android-36", kind: "sdk", ru: "Платформа Android 16 (API 36)", en: "Android 16 platform (API 36)", dru: "", den: "" },
       { id: "platforms;android-35", kind: "sdk", ru: "Платформа Android 15 (API 35)", en: "Android 15 platform (API 35)", dru: "android.jar для компиляции.", den: "android.jar for compilation." },
       { id: "platforms;android-34", kind: "sdk", ru: "Платформа Android 14 (API 34)", en: "Android 14 platform (API 34)", dru: "", den: "" },
+      { id: "build-tools;37.0.0", kind: "sdk", ru: "Build-tools 37.0.0", en: "Build-tools 37.0.0", dru: "", den: "" },
+      { id: "build-tools;36.0.0", kind: "sdk", ru: "Build-tools 36.0.0", en: "Build-tools 36.0.0", dru: "", den: "" },
       { id: "build-tools;35.0.0", kind: "sdk", ru: "Build-tools 35.0.0", en: "Build-tools 35.0.0", dru: "Нужны Gradle (d8, lib).", den: "Required by Gradle (d8, lib)." },
       { id: "build-tools;34.0.0", kind: "sdk", ru: "Build-tools 34.0.0", en: "Build-tools 34.0.0", dru: "", den: "" }
     ] },
@@ -473,3 +479,4 @@
     if (!job && (!c || Date.now() - c.t > 120000)) refresh(false);
   };
 })();
+

@@ -10,6 +10,24 @@ if [ -f "$PREFIX/lib/libtermux-exec.so" ]; then
     export LD_PRELOAD="$PREFIX/lib/libtermux-exec.so"
 fi
 if [ -x "$PREFIX/bin/bash.bin" ]; then
+    # Termux's login shell was compiled with Termux's private /etc/profile.
+    # Apply the application profile for login shells, then skip that path.
+    agy_login=0
+    for agy_arg in "$@"; do
+        case "$agy_arg" in
+            --login) agy_login=1 ;;
+            --) break ;;
+            --*) ;;
+            -*) case "$agy_arg" in *l*) agy_login=1 ;; esac
+                case "$agy_arg" in *c*) break ;; esac ;;
+            *) break ;;
+        esac
+    done
+    if [ "$agy_login" = 1 ]; then
+        [ ! -r "$PREFIX/etc/profile" ] || . "$PREFIX/etc/profile"
+        exec "$PREFIX/bin/bash.bin" --noprofile "$@"
+    fi
     exec "$PREFIX/bin/bash.bin" "$@"
 fi
 exec /system/bin/sh "$@"
+
