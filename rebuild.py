@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Сборка Antigravity-BP fixed-ui-9 (standard / bypass) из полного дерева.
+"""Сборка Antigravity-BP 3.0 (standard / bypass) из полного дерева.
 
 Источники:
   app/                      — распакованное дерево standard-APK (без META-INF)
@@ -108,19 +108,44 @@ def zipalign4(path):
 
 
 def sign(unsigned):
-    apksigner = which_exe("apksigner")
     signed_dir = ROOT / "dist/signed"
     signed_dir.mkdir(parents=True, exist_ok=True)
     out = signed_dir / (unsigned.stem.replace("-unsigned", "") + ".apk")
     if out.exists():
         out.unlink()
-    subprocess.check_call([
-        apksigner, "sign",
-        "--ks", str(KEYSTORE), "--ks-key-alias", "debug",
-        "--ks-pass", "pass:android", "--key-pass", "pass:android",
-        "--out", str(out), str(unsigned),
-    ])
-    subprocess.check_call([apksigner, "verify", str(out)])
+
+    # Prefer standalone apksigner binary; fall back to bundled uber-apk-signer.jar
+    apksigner_bin = shutil.which("apksigner")
+    uber_jar = ROOT / "tools/uber-apk-signer.jar"
+    java_bin = which_exe("java")
+
+    if apksigner_bin:
+        subprocess.check_call([
+            apksigner_bin, "sign",
+            "--ks", str(KEYSTORE), "--ks-key-alias", "debug",
+            "--ks-pass", "pass:android", "--key-pass", "pass:android",
+            "--out", str(out), str(unsigned),
+        ])
+        subprocess.check_call([apksigner_bin, "verify", str(out)])
+    elif uber_jar.exists():
+        subprocess.check_call([
+            java_bin, "-jar", str(uber_jar),
+            "--apks", str(unsigned),
+            "--ks", str(KEYSTORE), "--ksAlias", "debug",
+            "--ksPass", "android", "--ksKeyPass", "android",
+            "--out", str(signed_dir),
+            "--skipZipAlign",
+        ])
+        # uber-apk-signer outputs <base>-aligned-signed.apk or <base>-signed.apk
+        base_name = unsigned.stem.replace("-unsigned", "")
+        candidates = list(signed_dir.glob(base_name + "*signed*.apk"))
+        if candidates:
+            candidates[0].replace(out)
+    else:
+        raise SystemExit(
+            "Neither apksigner nor tools/uber-apk-signer.jar found. "
+            "Install OpenJDK: pkg install openjdk-17"
+        )
     print("signed", out)
 
 

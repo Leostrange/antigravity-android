@@ -54,4 +54,35 @@ while IFS= read -r -d '' f; do
     fi
 done < <(grep -rIlZ -E -m 1 -e '^#! */usr/bin/env' -- "${targets[@]}" 2>/dev/null)
 
+# 3. Ensure the JVM sandbox profile exists (Termux-OpenJDK hardcodes
+#    /data/data/com.termux/{home,usr/tmp} into user.home / java.io.tmpdir,
+#    which are inaccessible here -> AccessDeniedException in every Java tool).
+#    Keep in sync with assets/env/overlay/etc/profile.d/65-agy-jvm.sh.
+jvm_profile="$PREFIX/etc/profile.d/65-agy-jvm.sh"
+if [ ! -f "$jvm_profile" ]; then
+    mkdir -p "$PREFIX/etc/profile.d" 2>/dev/null || true
+    if cat > "$jvm_profile" 2>/dev/null <<'JVMPROF'
+# 65-agy-jvm.sh — Antigravity JVM sandbox paths (see agy-fix-paths step 3).
+_agy_jvm_tmp=""
+if [ -n "${TMPDIR:-}" ] && [ -d "$TMPDIR" ] && touch "$TMPDIR/.agy_jvm_w" 2>/dev/null; then
+    _agy_jvm_tmp="$TMPDIR"
+    rm -f "$TMPDIR/.agy_jvm_w"
+fi
+[ -n "$_agy_jvm_tmp" ] || _agy_jvm_tmp="$PREFIX/tmp"
+[ -d "$_agy_jvm_tmp" ] || _agy_jvm_tmp="$HOME/.cache/tmp"
+mkdir -p "$_agy_jvm_tmp" 2>/dev/null || true
+case "${JAVA_TOOL_OPTIONS:-}" in
+    *-Duser.home=*) : ;;
+    *)
+        export JAVA_TOOL_OPTIONS="-Duser.home=$HOME -Djava.io.tmpdir=$_agy_jvm_tmp${JAVA_TOOL_OPTIONS:+ $JAVA_TOOL_OPTIONS}"
+        ;;
+esac
+unset _agy_jvm_tmp
+JVMPROF
+    then
+        count=$((count + 1))
+        printf 'agy-fix-paths: wrote %s\n' "$jvm_profile"
+    fi
+fi
+
 printf 'agy-fix-paths: rewrote %d file(s) -> %s\n' "$count" "$PREFIX"

@@ -1,0 +1,211 @@
+#!/data/user/0/com.agyru.bp/files/usr/bin/bash
+# agy-fix-flutter — apply the Flutter/Dart toolchain fixes for the AGY
+# Android sandbox (Termux userspace, bionic libc, no glibc loader).
+#
+# Idempotent: safe to re-run any time, especially after
+#   * `flutter upgrade`      -> snapshot + glibc dart-sdk may return
+#   * `flutter pub get`      -> a NEW platform-x.y.z lands in pub-cache
+#   * Gradle reset           -> ~/.gradle/native may hold a broken .so
+#
+# Reference: docs/flutter-toolchain.md (full symptoms -> causes table).
+set -uo pipefail
+
+FSDK="${FLUTTER_ROOT:-$HOME/flutter_sdk}"
+PATCHED=0            # total fixes applied (summary)
+NEED_SNAPSHOT=0      # tool sources changed -> flutter_tools.snapshot must go
+WARN=0
+ok()   { printf '  [ok]   %s\n' "$*"; }
+did()  { printf '  [fix]  %s\n' "$*"; PATCHED=$((PATCHED + 1)); }
+warn() { printf '  [warn] %s\n' "$*"; WARN=$((WARN + 1)); }
+
+printf 'Antigravity Flutter/Dart toolchain fix\n'
+
+# --- 1. dart-sdk: swap Flutter's glibc build for the Termux (bionic) one ---
+# Flutter downloads a Linux glibc Dart SDK (/lib/ld-linux-aarch64.so.1 does
+# not exist on Android) -> "cannot execute: required file not found".
+# The Termux package 'pkg install dart' ships a bionic build of the SAME
+# version; only swap when versions match, keep the original as dart-sdk.glibc.
+CACHE="$FSDK/bin/cache"
+if [ ! -d "$FSDK" ]; then
+    warn "flutter_sdk not found at $FSDK (skip dart-sdk swap)"
+elif [ -L "$CACHE/dart-sdk" ]; then
+    ok "dart-sdk already a symlink -> $(readlink "$CACHE/dart-sdk")"
+else
+    PKG_DART_DIR="$PREFIX/lib/dart-sdk"
+    if [ ! -d "$PKG_DART_DIR" ]; then
+        warn "Termux Dart missing — run: pkg install dart"
+    elif ! command -v dart >/dev/null 2>&1; then
+        warn "'dart' not on PATH — run: pkg install dart"
+    else
+        cache_ver="$(cat "$CACHE/dart-sdk/version" 2>/dev/null || true)"
+        pkg_ver="$(dart --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
+        if [ -z "$cache_ver" ] || [ "$cache_ver" != "$pkg_ver" ]; then
+            warn "Dart versions differ (cache=${cache_ver:-?} pkg=${pkg_ver:-?}) — NOT swapping; install the matching 'pkg install dart'"
+        else
+            rm -rf "$CACHE/dart-sdk.glibc"
+            mv "$CACHE/dart-sdk" "$CACHE/dart-sdk.glibc"
+            ln -s "$PKG_DART_DIR" "$CACHE/dart-sdk"
+            did "dart-sdk glibc -> bionic symlink (original kept as dart-sdk.glibc, v$cache_ver)"
+            NEED_SNAPSHOT=1
+        fi
+    fi
+fi
+
+# --- 2-4. source patches (python3 does exact, guarded text surgery) -------
+# Output is captured so a [fix] line from python can flag the snapshot rebuild.
+PATCH_OUT="$(python3 - "$FSDK" "$HOME" 2>&1 <<'PY'
+import glob, os, sys
+
+fsdk, home = sys.argv[1], sys.argv[2]
+
+def patch(path, guard, old, new, label):
+    """Replace `old` with `new` only when `guard` is absent (idempotent)."""
+    if not os.path.isfile(path):
+        print("  [skip] %s: not found" % label)
+        return
+    try:
+        with open(path, encoding="utf-8") as f:
+            src = f.read()
+    except OSError as e:
+        print("  [warn] %s: cannot read (%s)" % (label, e))
+        return
+    if guard in src:
+        print("  [ok]   %s: already patched" % label)
+        return
+    if old not in src:
+        print("  [warn] %s: anchor not found - Flutter sources changed, patch manually (%s)" % (label, path))
+        return
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(src.replace(old, new, 1))
+    print("  [fix]  %s" % label)
+
+# 2. flutter_tools/base/os.dart - hostPlatform must know Android ABIs,
+#    otherwise: "Unsupported host platform: android_arm64".
+patch(
+    os.path.join(fsdk, "packages/flutter_tools/lib/src/base/os.dart"),
+    "Antigravity (Android userspace) patch",
+    "      _ => throw UnsupportedError('Unsupported host platform: $_currentAbi'),",
+    "      // Antigravity (Android userspace) patch: treat Android host as Linux.\n"
+    "      Abi.androidArm64 => HostPlatform.linux_arm64,\n"
+    "      Abi.androidArm => HostPlatform.linux_arm64,\n"
+    "      Abi.androidX64 => HostPlatform.linux_x64,\n"
+    "      _ => throw UnsupportedError('Unsupported host platform: $_currentAbi'),",
+    "os.dart hostPlatform (android ABI -> linux)",
+)
+
+# 3. flutter_tools/base/platform.dart - LocalPlatform.operatingSystem,
+#    otherwise: "Unsupported operating system: android" (flutter_cache.dart).
+patch(
+    os.path.join(fsdk, "packages/flutter_tools/lib/src/base/platform.dart"),
+    "io.Platform.operatingSystem == 'android'",
+    "  @override\n"
+    "  String get operatingSystem => io.Platform.operatingSystem;",
+    "  @override\n"
+    "  String get operatingSystem => io.Platform.operatingSystem == 'android'\n"
+    "      ? 'linux'\n"
+    "      : io.Platform.operatingSystem;",
+    "platform.dart operatingSystem (android -> linux)",
+)
+
+# 4. pub-cache package:platform - same mapping for plugins/tools that use it.
+#    `flutter pub get` may bring a NEW platform-x.y.z: patch every copy.
+old_lp = (
+    "  @override\n"
+    "  String get operatingSystem => io.Platform.operatingSystem;"
+)
+new_lp = (
+    "  @override\n"
+    "  String get operatingSystem =>\n"
+    "      io.Platform.operatingSystem == 'android' && !_runningOnDevice\n"
+    "          ? 'linux'\n"
+    "          : io.Platform.operatingSystem;\n"
+    "\n"
+    "  /// Antigravity patch: inside the Android app sandbox (Termux-like userspace)\n"
+    "  /// we behave as Linux for the Flutter tool. Running on an actual Android\n"
+    "  /// device (via `flutter run` targets) still reports 'android'.\n"
+    "  static final bool _runningOnDevice =\n"
+    "      io.Platform.environment.containsKey('FLUTTER_ON_DEVICE');"
+)
+pat = os.path.join(home, ".pub-cache/hosted/pub.dev/platform-*/lib/src/interface/local_platform.dart")
+for lp in sorted(glob.glob(pat)):
+    ver = lp.split("platform-")[1].split("/")[0]
+    patch(lp, "_runningOnDevice", old_lp, new_lp, "pub-cache platform-%s local_platform.dart" % ver)
+PY
+)" || warn "source patches could not run (python3 missing?)"
+printf '%s\n' "$PATCH_OUT"
+printf '%s' "$PATCH_OUT" | grep -q '\[fix\]' && NEED_SNAPSHOT=1
+
+# --- 5. rebuild flutter_tools.snapshot so patches 2-4 take effect ---------
+# flutter runs from an AOT snapshot, not sources: until it is deleted the
+# patches above have no effect (rebuild takes ~1-2 min on first run).
+TOOL_CACHE="$FSDK/bin/cache"
+if [ "$NEED_SNAPSHOT" = 1 ]; then
+    if [ -f "$TOOL_CACHE/flutter_tools.snapshot" ] || [ -f "$TOOL_CACHE/flutter_tools.stamp" ]; then
+        rm -f "$TOOL_CACHE/flutter_tools.snapshot" "$TOOL_CACHE/flutter_tools.stamp"
+        did "flutter_tools.snapshot removed - next 'flutter --version' rebuilds it (~1-2 min)"
+    else
+        ok "flutter_tools.snapshot not present (will be built on next run)"
+    fi
+else
+    ok "flutter_tools.snapshot untouched (no source changes)"
+fi
+
+# --- 6. Gradle client/daemon JVM paths ------------------------------------
+# user.home=/data/data/com.termux/files/home (from /etc/passwd) breaks
+# libnative-platform extraction: "Could not initialize native services".
+# org.gradle.jvmargs covers the DAEMON; the CLIENT JVM gets the same flags
+# from profile.d/65-agy-jvm.sh (JAVA_TOOL_OPTIONS) - belt and braces here.
+GP="$HOME/.gradle/gradle.properties"
+mkdir -p "$HOME/.gradle" 2>/dev/null || true
+if [ -f "$GP" ] && grep -q '^org.gradle.jvmargs=' "$GP"; then
+    line="$(grep '^org.gradle.jvmargs=' "$GP" | head -n1)"
+    new="$line"
+    case "$new" in *-Duser.home=*) ;; *) new="$new -Duser.home=$HOME" ;; esac
+    case "$new" in *-Djava.io.tmpdir=*) ;; *) new="$new -Djava.io.tmpdir=$PREFIX/tmp" ;; esac
+    if [ "$new" != "$line" ]; then
+        grep -v '^org.gradle.jvmargs=' "$GP" > "$GP.agy" || true
+        printf '%s\n' "$new" >> "$GP.agy"
+        mv -f "$GP.agy" "$GP"
+        did "gradle.properties: appended sandbox paths to org.gradle.jvmargs"
+    else
+        ok "gradle.properties jvmargs already carry sandbox paths"
+    fi
+else
+    printf 'org.gradle.jvmargs=-Xmx1536m -Djava.io.tmpdir=%s -Duser.home=%s\n' "$PREFIX/tmp" "$HOME" >> "$GP"
+    did "gradle.properties: wrote org.gradle.jvmargs"
+fi
+
+# --- 7. clean broken Gradle native cache ----------------------------------
+# A previously interrupted extraction leaves a non-ELF libnative-platform.so
+# ("broken executable" / NativeException). Gradle re-extracts by itself.
+if [ -d "$HOME/.gradle/native" ]; then
+    cleaned=0
+    while IFS= read -r so; do
+        [ -n "$so" ] || continue
+        magic="$(head -c 4 "$so" 2>/dev/null | od -An -tx1 | tr -d ' \n')"
+        if [ "$magic" != "7f454c46" ]; then
+            rm -rf "$HOME/.gradle/native"
+            cleaned=1
+            break
+        fi
+    done <<EOF
+$(find "$HOME/.gradle/native" -name 'libnative-platform.so' 2>/dev/null)
+EOF
+    if [ "$cleaned" = 1 ]; then
+        did "removed broken ~/.gradle/native (corrupt libnative-platform.so)"
+    else
+        ok "~/.gradle/native intact"
+    fi
+else
+    ok "~/.gradle/native not present (Gradle will create it)"
+fi
+
+# --- summary ---------------------------------------------------------------
+printf '\nSummary: %d fix(es) applied, %d warning(s).\n' "$PATCHED" "$WARN"
+if [ "$NEED_SNAPSHOT" = 1 ]; then
+    printf 'Next: flutter --version   # rebuilds the tool snapshot (~1-2 min)\n'
+fi
+if [ "$WARN" -gt 0 ]; then
+    printf 'Warnings above need attention (see docs/flutter-toolchain.md).\n'
+fi
+[ "$WARN" -eq 0 ]

@@ -44,8 +44,9 @@
       { id: "maven", kind: "pkg", ru: "Maven", en: "Maven", dru: "", den: "" }
     ] },
     { id: "android", ru: "Android: сборка APK", en: "Android: APK build", items: [
-      { id: "aapt", kind: "pkg", ru: "aapt", en: "aapt", dru: "Упаковка ресурсов (старый).", den: "Resource packaging (legacy)." },
+      { id: "aapt", kind: "pkg", ru: "aapt + zipalign", en: "aapt + zipalign", dru: "Упаковка ресурсов и выравнивание APK; zipalign входит в пакет aapt.", den: "Resource packaging and APK alignment; zipalign is included in aapt.", verify: "aapt,zipalign" },
       { id: "aapt2", kind: "pkg", ru: "aapt2", en: "aapt2", dru: "Нативный aapt2 — Gradle использует его вместо x86-версии.", den: "Native aapt2 — Gradle uses it instead of the x86 build.", verify: "aapt2" },
+      { id: "aidl", kind: "pkg", ru: "aidl", en: "aidl", dru: "Нативный компилятор интерфейсов AIDL.", den: "Native AIDL interface compiler.", verify: "aidl" },
       { id: "d8", kind: "pkg", ru: "d8", en: "d8", dru: "Компиляция в DEX.", den: "DEX compiler.", verify: "d8" },
       { id: "apksigner", kind: "pkg", ru: "apksigner", en: "apksigner", dru: "Подпись APK v1–v4.", den: "APK signing v1–v4.", verify: "apksigner" },
       { id: "android-tools", kind: "pkg", ru: "adb / fastboot", en: "adb / fastboot", dru: "Отладка по Wi-Fi и через Shizuku.", den: "Debugging over Wi-Fi and via Shizuku.", verify: "adb" },
@@ -53,8 +54,13 @@
       { id: "jadx", kind: "pkg", ru: "jadx", en: "jadx", dru: "Декомпилятор DEX → Java.", den: "DEX → Java decompiler." }
     ] },
     { id: "sdk", ru: "Android SDK", en: "Android SDK", note: { ru: "Загружается с dl.google.com через sdkmanager. Нужен OpenJDK — поставится сам. x86-бинарники build-tools заменяются нативными aapt/aapt2/zipalign.", en: "Downloaded from dl.google.com with sdkmanager. Needs OpenJDK (installed automatically). x86 build-tools binaries are replaced with native aapt/aapt2/zipalign." }, items: [
+      { id: "platforms;android-37.1", kind: "sdk", ru: "Платформа Android API 37.1", en: "Android platform API 37.1", dru: "", den: "" },
+      { id: "platforms;android-37.0", kind: "sdk", ru: "Платформа Android API 37.0", en: "Android platform API 37.0", dru: "", den: "" },
+      { id: "platforms;android-36", kind: "sdk", ru: "Платформа Android 16 (API 36)", en: "Android 16 platform (API 36)", dru: "", den: "" },
       { id: "platforms;android-35", kind: "sdk", ru: "Платформа Android 15 (API 35)", en: "Android 15 platform (API 35)", dru: "android.jar для компиляции.", den: "android.jar for compilation." },
       { id: "platforms;android-34", kind: "sdk", ru: "Платформа Android 14 (API 34)", en: "Android 14 platform (API 34)", dru: "", den: "" },
+      { id: "build-tools;37.0.0", kind: "sdk", ru: "Build-tools 37.0.0", en: "Build-tools 37.0.0", dru: "", den: "" },
+      { id: "build-tools;36.0.0", kind: "sdk", ru: "Build-tools 36.0.0", en: "Build-tools 36.0.0", dru: "", den: "" },
       { id: "build-tools;35.0.0", kind: "sdk", ru: "Build-tools 35.0.0", en: "Build-tools 35.0.0", dru: "Нужны Gradle (d8, lib).", den: "Required by Gradle (d8, lib)." },
       { id: "build-tools;34.0.0", kind: "sdk", ru: "Build-tools 34.0.0", en: "Build-tools 34.0.0", dru: "", den: "" }
     ] },
@@ -62,6 +68,9 @@
       { id: "ndk-sysroot", kind: "pkg", ru: "NDK sysroot", en: "NDK sysroot", dru: "Заголовки и библиотеки Android для clang.", den: "Android headers and libraries for clang." },
       { id: "ndk-multilib", kind: "pkg", ru: "NDK multilib", en: "NDK multilib", dru: "Библиотеки для arm, x86, x86_64.", den: "Libraries for arm, x86, x86_64." },
       { id: "ndk-full", kind: "ndk", ru: "Полный NDK (сборка Termux)", en: "Full NDK (Termux build)", dru: "ndk-build и CMake toolchain для Gradle. ~1 ГБ, из github.com/lzhiyong/termux-ndk.", den: "ndk-build and CMake toolchain for Gradle. ~1 GB, from github.com/lzhiyong/termux-ndk.", verify: "ndk" }
+    ] },
+    { id: "flutter", ru: "Flutter & Dart", en: "Flutter & Dart", note: { ru: "Кроссплатформенный SDK для создания Android/Web-приложений. Автоматически настраивается для Android bionic через agy-fix-flutter.", en: "Cross-platform SDK for Android/Web apps. Automatically patched for Android bionic userspace via agy-fix-flutter." }, items: [
+      { id: "flutter-sdk", kind: "flutter", ru: "Flutter SDK (stable)", en: "Flutter SDK (stable)", dru: "SDK Flutter + Dart + автопатч bionic libc.", den: "Flutter SDK + Dart + bionic libc autopatch.", verify: "flutter,dart" }
     ] },
     { id: "lang", ru: "Другие языки", en: "Other languages", items: [
       { id: "rust", kind: "pkg", ru: "Rust (cargo)", en: "Rust (cargo)", dru: "", den: "", verify: "rust" },
@@ -87,7 +96,9 @@
     { id: "apk", ru: "Android-приложение (Gradle)", en: "Android app (Gradle)", dru: "OpenJDK 17, Gradle, Kotlin, aapt2, d8, apksigner, SDK 35", den: "OpenJDK 17, Gradle, Kotlin, aapt2, d8, apksigner, SDK 35",
       items: ["openjdk-17", "gradle", "kotlin", "aapt", "aapt2", "d8", "apksigner", "android-tools", "platforms;android-35", "build-tools;35.0.0"] },
     { id: "native", ru: "Нативный код (NDK)", en: "Native code (NDK)", dru: "clang, CMake, Ninja, NDK sysroot/multilib", den: "clang, CMake, Ninja, NDK sysroot/multilib",
-      items: ["clang", "lld", "cmake", "ninja", "make", "ndk-sysroot", "ndk-multilib"] }
+      items: ["clang", "lld", "cmake", "ninja", "make", "ndk-sysroot", "ndk-multilib"] },
+    { id: "flutter", ru: "Flutter-разработка", en: "Flutter development", dru: "Flutter SDK, OpenJDK 17, Gradle, aapt2, SDK 35", den: "Flutter SDK, OpenJDK 17, Gradle, aapt2, SDK 35",
+      items: ["flutter-sdk", "openjdk-17", "gradle", "aapt", "aapt2", "d8", "apksigner", "android-tools", "platforms;android-35", "build-tools;35.0.0"] }
   ];
   var ITEMS = {};
   GROUPS.forEach(function (g) { g.items.forEach(function (it) { it.group = g.id; ITEMS[it.id] = it; }); });
@@ -95,7 +106,7 @@
   /* ------------------------------------------------------------ state */
   var host = null, root = null;
   var status = {};          // id -> {avail, inst}
-  var special = { cmdline: false, platforms: {}, buildtools: {}, ndk: [] };
+  var special = { cmdline: false, platforms: {}, buildtools: {}, ndk: [], flutter: false };
   var checks = {};          // verify name -> {ok, text}
   var selected = {};
   var job = null;           // {id, op, label, log, rc}
@@ -107,8 +118,9 @@
 
   function installed(it) {
     if (it.kind === "pkg") { var s = status[it.id]; return !!(s && s.inst && s.inst !== "-"); }
-    if (it.kind === "sdk") { var p = it.id.split(";"); return p[0] === "platforms" ? !!special.platforms[p[1]] : !!special.buildtools[p[1]]; }
+    if (it.kind === "sdk") { var p = it.id.split(";"); return (p[0] === "platforms" ? special.platforms[p[1]] : special.buildtools[p[1]]) === true; }
     if (it.kind === "ndk") return special.ndk.length > 0;
+    if (it.kind === "flutter") return !!special.flutter;
     if (it.kind === "npm") { var n = status["npm:" + it.id]; return !!(n && n.inst); }
     return false;
   }
@@ -183,14 +195,15 @@
   var lastDone = null, hiddenJob = null;
 
   function parse(j) {
-    if (j.op === "status") special = { cmdline: false, platforms: {}, buildtools: {}, ndk: [] };
+    if (j.op === "status") special = { cmdline: false, platforms: {}, buildtools: {}, ndk: [], flutter: false };
     (j.log || "").split("\n").forEach(function (line) {
       var m;
       if ((m = /^@@pkg (\S+) (\S+) (\S+)/.exec(line))) status[m[1]] = { avail: m[2], inst: m[3] };
       else if ((m = /^@@special cmdline-tools (\S+)/.exec(line))) special.cmdline = m[1] === "ok";
-      else if ((m = /^@@special platform (\S+)/.exec(line))) special.platforms[m[1]] = true;
-      else if ((m = /^@@special build-tools (\S+)/.exec(line))) special.buildtools[m[1]] = true;
+      else if ((m = /^@@special platform (\S+)(?: (\S+))?/.exec(line))) special.platforms[m[1]] = m[2] === "incomplete" ? "incomplete" : true;
+      else if ((m = /^@@special build-tools (\S+)(?: (\S+))?/.exec(line))) special.buildtools[m[1]] = m[2] === "incomplete" ? "incomplete" : true;
       else if ((m = /^@@special ndk (\S+)/.exec(line))) { if (special.ndk.indexOf(m[1]) < 0) special.ndk.push(m[1]); }
+      else if ((m = /^@@special flutter (\S+)/.exec(line))) special.flutter = m[1] === "ok";
       else if ((m = /^@@(ok|fail) (\S+) ?(.*)$/.exec(line))) checks[m[2]] = { ok: m[1] === "ok", text: m[3] };
       else if ((m = /^@@npm (\S+) (\S+)/.exec(line))) status["npm:" + m[1]] = { inst: m[2] !== "-" };
       else if ((m = /^@@index (\S+)/.exec(line))) hasIndex = m[1] === "ok";
@@ -205,7 +218,8 @@
     var c = null;
     try { c = JSON.parse(store("agyToolsCache") || "null"); } catch (e) {}
     if (!c) return false;
-    status = c.status || {}; special = c.special || special; checks = c.checks || {}; hasIndex = c.hasIndex !== false;
+    status = c.status || {}; special = c.special || special; checks = c.checks || {};
+    hasIndex = c.hasIndex !== false || Object.keys(status).length > 0;
     loaded = true;
     return true;
   }
@@ -224,18 +238,20 @@
   }
 
   function installIds(ids) {
-    var pk = [], sdk = [], npm = [], ndk = false;
+    var pk = [], sdk = [], npm = [], ndk = false, flutter = false;
     ids.forEach(function (id) {
       var it = ITEMS[id]; if (!it) return;
       if (it.kind === "pkg") { if (availability(it)) pk.push(id); }
       else if (it.kind === "sdk") sdk.push(id);
       else if (it.kind === "npm") npm.push(id);
       else if (it.kind === "ndk") ndk = true;
+      else if (it.kind === "flutter") flutter = true;
     });
     if (pk.length) run("install", pk.join(" "), T("Установка: ", "Install: ") + pk.join(", "));
     if (npm.length) run("npm", npm.join(" "), "npm -g " + npm.join(" "));
     if (sdk.length) run("sdk", sdk.join(" "), "sdkmanager " + sdk.join(" "));
     if (ndk) run("ndk", "", T("Полный NDK", "Full NDK"));
+    if (flutter) run("flutter", "", T("Flutter SDK", "Flutter SDK"));
     refresh(true);
   }
   function removeId(id) {
@@ -243,6 +259,7 @@
     if (it.kind === "pkg") run("remove", id, T("Удаление: ", "Remove: ") + id);
     else if (it.kind === "sdk") run("sdkremove", id, T("Удаление: ", "Remove: ") + id);
     else if (it.kind === "ndk") run("ndkremove", "", T("Удаление NDK", "Remove NDK"));
+    else if (it.kind === "flutter") run("flutterremove", "", T("Удаление Flutter SDK", "Remove Flutter SDK"));
     else return;
     refresh(true);
   }
@@ -265,6 +282,7 @@
       return '<span class="agy-t-badge">' + esc(T("Доступно ", "Available ") + s.avail) + "</span>";
     }
     if (!loaded) return '<span class="agy-t-badge">…</span>';
+    if (it.kind === "sdk") { var p = it.id.split(";"); if ((p[0] === "platforms" ? special.platforms[p[1]] : special.buildtools[p[1]]) === "incomplete") return '<span class="agy-t-badge off">' + esc(T("Не хватает файлов", "Missing files")) + '</span>'; }
     return installed(it) ? '<span class="agy-t-badge ok">' + esc(T("Установлено", "Installed")) + "</span>"
                          : '<span class="agy-t-badge">' + esc(T("Не установлено", "Not installed")) + "</span>";
   }
@@ -294,7 +312,7 @@
       '<div class="agy-t-jfacts"></div>' +
       '<div class="agy-t-jrow"><span class="agy-t-jtail"></span><button type="button" class="agy-t-jlog" data-act="log"></button><button type="button" data-act="copy-log">' + esc(T("Копировать", "Copy")) + '</button></div>' +
       '<pre class="agy-t-log" hidden></pre></div>';
-    if (loaded && !hasIndex) h += '<div class="agy-t-warn">' + esc(T("Список пакетов ещё не загружен — состояние неполное.", "Package list is not downloaded yet — status is incomplete.")) +
+    if (loaded && !hasIndex && Object.keys(status).length === 0) h += '<div class="agy-t-warn">' + esc(T("Список пакетов ещё не загружен — состояние неполное.", "Package list is not downloaded yet — status is incomplete.")) +
       ' <button type="button" class="agy-t-btn" data-act="index"' + (busy ? " disabled" : "") + ">" + esc(T("Загрузить", "Download")) + "</button></div>";
     if (!bridge()) h += '<div class="agy-t-warn">' + esc(T("Нативный мост недоступен в этой сборке.", "Native bridge is not available in this build.")) + "</div>";
 
@@ -333,8 +351,9 @@
   var QUIET = { status: 1, verify: 1 };
   // Log text: drop machine lines and curl "####" bars; keep the last state of \r-lines.
   function cleanLog(raw) {
-    return (raw || "").split("\n").map(function (l) { var p = l.split("\r"); return p[p.length - 1]; })
-      .filter(function (l) { return !/^@@/.test(l) && !/^[#\s]*(\d{1,3}[.,]\d%?|\d{1,3}%)?\s*$/.test(l) && !/^#{3,}/.test(l); }).join("\n");
+    return (raw || "").split("\n").map(function (l) { var p = l.split("\r"); while (p.length && !p[p.length - 1].trim()) p.pop(); return p.pop() || ""; })
+      .map(function (l) { return l.replace(/^@@fail\s+/, "Ошибка: ").replace(/^@@error\s+/, "Ошибка: "); })
+      .filter(function (l) { return !/^@@/.test(l) && !/^[#\s]*(\d{1,3}(?:[.,]\d+)?%?)?\s*$/.test(l) && !/^#{3,}/.test(l); }).join("\n");
   }
   // Progress model from pkg / curl / sdkmanager output.
   function progress(j) {
@@ -345,7 +364,7 @@
     var size = (/Need to get ([^\n]+?) of archives/.exec(raw) || [])[1];
     var gets = (raw.match(/^Get:\d+ /gm) || []).length;
     var sets = raw.match(/^Setting up (\S+)/gm) || [];
-    var pcts = raw.match(/(\d{1,3}[.,]\d)%/g) || [];
+    var pcts = raw.match(/\d{1,3}(?:[.,]\d+)?%/g) || [];
     var cur = pcts.length ? parseFloat(pcts[pcts.length - 1].replace(",", ".")) : 0;
     if (/install|upgrade/.test(j.op) && total) {
       var dl = Math.max(0, gets - 1) + (gets ? Math.min(1, cur / 100) : 0);
@@ -355,7 +374,7 @@
         ? T("Установлено ", "Installed ") + sets.length + T(" из ", " of ") + total + (lastName ? " · " + lastName : "")
         : T("Загрузка ", "Downloading ") + Math.max(gets, 1) + T(" из ", " of ") + total + (cur ? " · " + Math.round(cur) + "%" : "");
       r.facts.push(T("Пакетов: ", "Packages: ") + total + (size ? T(" · объём ", " · size ") + size : ""));
-    } else if (/sdk|ndk|npm/.test(j.op) && pcts.length) {
+    } else if (/sdk|ndk|npm|flutter/.test(j.op) && pcts.length) {
       r.pct = Math.min(99, Math.round(cur));
       r.phase = T("Загрузка · ", "Downloading · ") + Math.round(cur) + "%";
     } else if (/^== pkg update/m.test(raw) && !/Reading package lists/.test(raw)) {
@@ -468,8 +487,18 @@
     render();
     if (!loaded) loadCache();
     render();
-    // Quiet, fast refresh (reads pkg's files, no network) at most every 2 min.
+    // Auto-verify on entrance: if no cache, checks are missing, or cache is stale (>2 min), run verify.
     var c = null; try { c = JSON.parse(store("agyToolsCache") || "null"); } catch (e) {}
-    if (!job && (!c || Date.now() - c.t > 120000)) refresh(false);
+    var needsVerify = !c || !c.checks || !Object.keys(c.checks).length;
+    if (!job) {
+      if (!hasIndex && Object.keys(status).length === 0) {
+        run("index", "", T("Загрузка списка пакетов", "Downloading package list"));
+        refresh(true);
+      } else if (needsVerify || (c && Date.now() - c.t > 120000)) {
+        refresh(true);
+      }
+    }
   };
 })();
+
+

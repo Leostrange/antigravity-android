@@ -1,0 +1,25 @@
+#!/data/user/0/com.agyru.bp/files/usr/bin/bash
+# jadx-agy — jadx wrapper for the AGY Android sandbox.
+#
+# Termux-OpenJDK hardcodes Termux paths: user.home/.cache and java.io.tmpdir
+# point to /data/data/com.termux/... which are inaccessible here
+# (java.nio.file.AccessDeniedException: Failed to init common directories /
+# Failed to create temp root directory). The JVM ignores TMPDIR for
+# java.io.tmpdir, so the flags must be explicit. -Xmx1500m + -j 2 keep a
+# 70 MB APK decompile from being OOM-killed (exit 137) on a ~2 GB device.
+#
+# Usage:  jadx-agy [jadx args...]
+#   jadx-agy -d out --no-res -j 2 app.apk
+#
+# Note: --single-class-thread does not exist in jadx 1.5.x — use -j N.
+# res/*.9.png decode warnings from obfuscated APKs are harmless for
+# smali/manifest; grab raw nine-patches via: unzip app.apk "res/*.9.png"
+set -u
+
+AGY_JAVA_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/jadx"
+mkdir -p "$AGY_JAVA_CACHE/tmp" 2>/dev/null || true
+
+export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
+export JAVA_TOOL_OPTIONS="-Djava.io.tmpdir=$AGY_JAVA_CACHE/tmp -Duser.home=$HOME -Xmx1500m${JAVA_TOOL_OPTIONS:+ $JAVA_TOOL_OPTIONS}"
+
+exec jadx "$@"

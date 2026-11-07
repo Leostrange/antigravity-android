@@ -1,9 +1,9 @@
 {
   "bootstrapSha256": "6958054de70ed135c7d946a50dc98e91f7ef1e441abfaf7b824c08d11fbc2080",
   "bootstrapSymlinkCount": 427,
-  "bundleId": "784a9829ea596a7afcbf5a2d5cc310538cce56dfb7f504297f8b44d5179388f0",
-  "overlaySha256": "e03a37ac21f01a95abe41fa5ce905a713122478964b0886ac47f556469b95e04",
-  "pkgSha256": "d38e8db3bf3d6b220083334220fe487dc24ec5a252acc29872611eb2d6d683c2",
+  "bundleId": "f6fc96b40451ea0d5a0c9d4aee3dc92a777fdf1a137fae1e7540b9cb12579759",
+  "overlaySha256": "bf9b49518f3ddb63e877e67995c2f405a306fea9ff70749534c66b2984f2bd39",
+  "pkgSha256": "5022600bcd6eb781402d59edb711e4733a24c19b6d3592ce55e460ace4632c0f",
   "schema": 1,
   "seedPackages": []
 }

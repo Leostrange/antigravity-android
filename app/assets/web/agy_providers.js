@@ -136,6 +136,7 @@
   };
 
   var root = null, editing = null, fetchTimer = 0, fetchJob = null, fetchMsg = "", typeOpen = false;
+  var fetchListType = null, fetchFallbackTried = false;
 
   /* ---- sync selected provider models into the model selector (BYOM) ---- */
   function desiredModels() {
@@ -230,17 +231,52 @@
       return { ids: ids, meta: meta };
     } catch (e) { return null; }
   }
+  function normBase(base, type) {
+    base = String(base || "").trim().replace(/\/+$/, "");
+    // Anthropic-style bases are the API root (native/direct code appends /v1/…),
+    // so a pasted trailing "/v1" would double up — strip it.
+    if (type === "anthropic") base = base.replace(/\/v1$/, "");
+    return base;
+  }
+  function cleanBody(b) {
+    return String(b || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 200);
+  }
+  // Fallback for providers that implement the chat API but no model list
+  // (e.g. MiMo's Anthropic-compatible endpoint returns 404 for /v1/models).
+  // Try the OpenAI-style catalog on the same host (/v1/models), which such
+  // providers usually do expose; manual model entry covers the rest.
+  function tryFallback(conn) {
+    if (fetchFallbackTried) return false;
+    fetchFallbackTried = true;
+    var base = normBase(conn.baseUrl || "", conn.type), fb;
+    try {
+      var u = new URL(base);
+      if (!u.pathname || u.pathname === "/") return false;
+      fb = u.origin + "/v1";
+    } catch (e) { return false; }
+    if (fb === base) return false;
+    fetchMsg = T("Список моделей для этого API недоступен — пробую каталог того же сервера…",
+                 "No model list for this API — trying the same server's catalog…");
+    render();
+    startFetch(conn, "openai", fb);
+    return true;
+  }
   function loadModels(conn) {
     fetchMsg = T("Загрузка списка моделей…", "Loading models…");
     render();
+    fetchFallbackTried = false;
+    startFetch(conn, conn.type, normBase(conn.baseUrl || typeOf(conn.type).base, conn.type));
+  }
+  function startFetch(conn, listType, base) {
+    fetchListType = listType;
     if (bridge && typeof bridge.fetchModels === "function") {
       var id;
-      try { id = bridge.fetchModels(conn.type, conn.baseUrl || "", conn.apiKey || "", JSON.stringify(conn.headers || {})); } catch (e) { fetchMsg = "ERR:" + e; render(); return; }
+      try { id = bridge.fetchModels(listType, base, conn.apiKey || "", JSON.stringify(conn.headers || {})); } catch (e) { fetchMsg = "ERR:" + e; render(); return; }
       fetchJob = id;
       pollFetch(conn);
     } else {
       // No native bridge: try a direct fetch (may be blocked by provider CORS).
-      directFetch(conn);
+      directFetch(conn, listType, base);
     }
   }
   function pollFetch(conn) {
@@ -252,24 +288,32 @@
     fetchJob = null;
     applyModels(conn, parseInt(r.status, 10) || 0, r.body || "");
   }
-  function directFetch(conn) {
-    var ty = conn.type, base = (conn.baseUrl || typeOf(ty).base).replace(/\/+$/, "");
+  function directFetch(conn, listType, base) {
     var url, headers = { "Accept": "application/json" };
-    if (ty === "gemini") url = base + "/models?key=" + encodeURIComponent(conn.apiKey || "");
-    else if (ty === "anthropic") { url = base + "/v1/models"; headers["x-api-key"] = conn.apiKey || ""; headers["anthropic-version"] = "2023-06-01"; headers["anthropic-dangerous-direct-browser-access"] = "true"; }
+    if (listType === "gemini") url = base + "/models?key=" + encodeURIComponent(conn.apiKey || "");
+    else if (listType === "anthropic") { url = base + "/v1/models"; headers["x-api-key"] = conn.apiKey || ""; headers["anthropic-version"] = "2023-06-01"; headers["anthropic-dangerous-direct-browser-access"] = "true"; }
     else { url = base + "/models"; headers["Authorization"] = "Bearer " + (conn.apiKey || ""); }
     Object.keys(conn.headers || {}).forEach(function (k) { headers[k] = conn.headers[k]; });
     fetch(url, { headers: headers }).then(function (res) {
       return res.text().then(function (b) { applyModels(conn, res.status, b); });
-    }).catch(function (e) { applyModels(conn, 0, "ERR:" + e + T(" (возможно, провайдер блокирует запрос из приложения — нужен нативный мост)", " (the provider may block in-app requests — native bridge needed)")); });
+    }).catch(function (e) {
+      if (tryFallback(conn)) return;
+      applyModels(conn, 0, "ERR:" + e + T(" (возможно, провайдер блокирует запрос из приложения — нужен нативный мост)", " (the provider may block in-app requests — native bridge needed)"));
+    });
   }
   function applyModels(conn, status, body) {
     if (status < 200 || status >= 400) {
-      fetchMsg = T("Ошибка ", "Error ") + (status || "") + ": " + (body || "").slice(0, 300);
+      if (tryFallback(conn)) return;
+      fetchMsg = T("Ошибка ", "Error ") + (status || "") + ": " + cleanBody(body) +
+        T(". Если список моделей недоступен — добавьте модели вручную в поле ниже.",
+          ". If the model list is unavailable, add models manually below.");
       render(); return;
     }
-    var parsed = parseModels(conn.type, body, conn.baseUrl || typeOf(conn.type).base);
-    if (!parsed || !parsed.ids.length) { fetchMsg = T("Список моделей пуст или не распознан.", "No models returned or response not recognized."); render(); return; }
+    var parsed = parseModels(fetchListType || conn.type, body, conn.baseUrl || typeOf(conn.type).base);
+    if (!parsed || !parsed.ids.length) {
+      if (tryFallback(conn)) return;
+      fetchMsg = T("Список моделей пуст или не распознан.", "No models returned or response not recognized."); render(); return;
+    }
     conn.models = parsed.ids;
     // Keep explicit user overrides when the provider catalog is refreshed.
     Object.keys(parsed.meta).forEach(function (id) {
@@ -289,7 +333,9 @@
     conn.modelMeta = parsed.meta;
     if (!conn.selected) conn.selected = [];
     save();
-    fetchMsg = T("Загружено моделей: ", "Loaded models: ") + parsed.ids.length;
+    fetchMsg = T("Загружено моделей: ", "Loaded models: ") + parsed.ids.length +
+      (fetchListType && fetchListType !== conn.type ?
+        T(" (через OpenAI-совместимый каталог того же сервера)", " (via the same server's OpenAI-compatible catalog)") : "");
     render();
   }
 
@@ -383,6 +429,7 @@
         h += '<div class="agy-pv-model">' +
              '<label class="agy-pv-sel"><input type="checkbox" data-model="' + esc(m) + '"' + (on ? " checked" : "") + "> <span>" + esc(m) + "</span></label>" +
              (ctxLbl ? '<span class="agy-pv-badge" title="' + esc(T("Контекст (из /models провайдера)", "Context (from provider /models)")) + '">' + esc(ctxLbl) + "</span>" : "") +
+             '<button type="button" class="agy-pv-btn sec" data-delmodel="' + esc(m) + '" title="' + esc(T("Убрать модель", "Remove model")) + '">✕</button>' +
              "</div>";
         // Per-model capability toggles (detected from /models, overridable by hand).
         if (on) {
@@ -405,6 +452,9 @@
       });
       h += "</div>";
     }
+    h += '<div class="agy-pv-hint">' + esc(T("Если провайдер не отдаёт список моделей — добавьте ID вручную (например, mimo-v2.6-pro).", "If the provider has no model list, add model IDs manually (e.g. mimo-v2.6-pro).")) + "</div>" +
+      '<div class="agy-pv-row"><input data-manual="1" placeholder="' + esc(T("ID модели", "Model ID")) + '" autocapitalize="off" autocorrect="off" spellcheck="false">' +
+      '<button type="button" class="agy-pv-btn sec" data-act="addmodel">' + esc(T("Добавить", "Add")) + "</button></div>";
     if (!c.__new) h += '<div class="agy-pv-row"><button type="button" class="agy-pv-btn danger" data-act="delete">' + esc(T("Удалить подключение", "Delete connection")) + "</button></div>";
     return h + "</div>";
   }
@@ -485,6 +535,12 @@
     var b = e.target.closest("button"); if (!b) return;
     if (b.getAttribute("data-typetoggle")) { readForm(); typeOpen = !typeOpen; render(); return; }
     if (b.getAttribute("data-add")) { editing = { id: uid(), type: "openai", __new: true, selected: [] }; fetchMsg = ""; typeOpen = false; render(); return; }
+    var dm = b.getAttribute("data-delmodel");
+    if (dm && editing) {
+      editing.models = (editing.models || []).filter(function (x) { return x !== dm; });
+      editing.selected = (editing.selected || []).filter(function (x) { return x !== dm; });
+      render(); return;
+    }
     var ed = b.getAttribute("data-edit");
     if (ed) { editing = JSON.parse(JSON.stringify(state.connections.filter(function (c) { return c.id === ed; })[0])); fetchMsg = ""; render(); return; }
     var act = b.getAttribute("data-act");
@@ -492,7 +548,23 @@
     readForm();
     if (act === "cancel") { editing = null; fetchMsg = ""; render(); }
     else if (act === "loadmodels") { loadModels(editing); }
+    else if (act === "addmodel") {
+      var inp = root.querySelector("[data-manual]");
+      var mid = ((inp && inp.value) || "").trim();
+      if (mid && editing) {
+        editing.models = editing.models || [];
+        if (editing.models.indexOf(mid) < 0) {
+          editing.models.push(mid);
+          editing.modelMeta = editing.modelMeta || {};
+          editing.modelMeta[mid] = editing.modelMeta[mid] || {};
+          fetchMsg = T("Добавлена модель: ", "Model added: ") + mid;
+        }
+        if (inp) inp.value = "";
+      }
+      render();
+    }
     else if (act === "save") {
+      editing.baseUrl = normBase(editing.baseUrl, editing.type);
       delete editing.__new;
       var i = state.connections.map(function (c) { return c.id; }).indexOf(editing.id);
       if (i >= 0) state.connections[i] = editing; else state.connections.push(editing);

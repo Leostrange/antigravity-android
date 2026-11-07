@@ -176,3 +176,14 @@ agy-notify cancel -t "Build Finished"
 - **Documentation Sync:** Every module (`modules/*`, `app/`, `web/`, `env/`) must maintain an accurate, concise `README.md`. Any change to code, interfaces, or flags MUST be accompanied by immediate documentation updates.
 - **No Hardcoded Crutches:** Avoid hardcoding paths or assumptions where dynamic calculation (`$PREFIX`, `$HOME`, `$PROJECT_ROOT`) is possible.
 - **Clean State:** Keep working trees clean, avoid creating dead or duplicated state, and do not commit temporary build artifacts.
+
+---
+
+## 8. Toolchain Fixes (JVM / Flutter / jadx)
+
+Termux-built components hardcode `/data/data/com.termux/...` paths or ship glibc binaries that do not run under Android (bionic). Two idempotent fixers live on `PATH`:
+
+- **`agy-fix-flutter`** — run after `flutter upgrade`, `flutter pub get` (a new `platform-x.y.z` lands in pub-cache) or a Gradle reset, and whenever Flutter reports `Unsupported host platform` / `Unsupported operating system`. It swaps `flutter_sdk/bin/cache/dart-sdk` to the bionic `pkg install dart` build (original kept as `dart-sdk.glibc`, only when versions match), patches `os.dart` / `platform.dart` / pub-cache `local_platform.dart`, invalidates `flutter_tools.snapshot`, fixes `~/.gradle/gradle.properties` JVM paths and removes a broken `~/.gradle/native`.
+- **`jadx-agy`** — use INSTEAD of plain `jadx` when decompiling: injects `-Duser.home` / `-Djava.io.tmpdir` (the Termux-JDK defaults are inaccessible from this sandbox) and `-Xmx1500m` so large APKs are not OOM-killed (exit 137). Recommended flags: `-j 2 --no-res`; note `--single-class-thread` does not exist in jadx 1.5.x. Harmless `res/*.9.png` decode warnings from obfuscated APKs do not affect smali/manifest.
+- Every other Java tool (apktool, d8, apksigner, jadx-gui, Gradle client/daemon) receives the same sandbox paths automatically through `$PREFIX/etc/profile.d/65-agy-jvm.sh` (`JAVA_TOOL_OPTIONS`); `agy-fix-paths` re-creates that file if missing.
+- Full reference documents: `docs/flutter-toolchain.md` and `docs/jadx-fixes.md` in the repository.

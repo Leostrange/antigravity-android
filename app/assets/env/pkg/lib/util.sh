@@ -87,7 +87,7 @@ load_conf() {
     : "${PKG_CHANNEL:=stable}"
     : "${PKG_COMPONENT:=main}"
     : "${PKG_ARCH:=aarch64}"
-    # data.tar paths are ./data/data/com.<id>/files/usr/... -> 6 components.
+    # data.tar paths are ./data/user/0/com.agyru.bp/files/usr/... -> 6 components.
     # deb_files strips by component count, not by a hardcoded prefix string.
     : "${PKG_DEB_STRIP:=6}"
 }

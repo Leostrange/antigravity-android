@@ -30,7 +30,11 @@ fetch() {
         sz_str=" [$(human_size "$size")]"
     fi
     printf 'Get:%s %s%s\n' "$idx" "$url" "$sz_str"
-    curl -# -fL --retry 3 --connect-timeout 20 --cacert "$PKG_CERT" -o "$out.part" "$url" \
+    # --retry alone skips curl error 35 (Recv failure: Connection reset by
+    # peer) which is common on mobile/VPN networks; --retry-all-errors makes
+    # every transient failure retry with backoff.
+    curl -# -fL --retry 5 --retry-all-errors --retry-delay 2 --retry-max-time 300 \
+        --connect-timeout 20 --cacert "$PKG_CERT" -o "$out.part" "$url" \
         || { rm -f "$out.part"; die "download failed: $url"; }
     if [ -n "$sha" ]; then
         have="$(sha256sum "$out.part" | cut -d' ' -f1)"

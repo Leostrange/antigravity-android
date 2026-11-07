@@ -26,7 +26,8 @@ cmd_update() {
         idx="$PKG_INDEX/repo.$i.Packages"
         local repo_url="$url/dists/$PKG_CHANNEL/$PKG_COMPONENT/binary-$PKG_ARCH/Packages.gz"
         printf 'Get:%s %s %s/%s %s Packages\n' "$i" "$url" "$PKG_CHANNEL" "$PKG_COMPONENT" "$PKG_ARCH"
-        if curl -# -fL --retry 2 --connect-timeout 10 --cacert "$PKG_CERT" -o "$gz" "$repo_url"; then
+        if curl -# -fL --retry 5 --retry-all-errors --retry-delay 2 --retry-max-time 120 \
+                --connect-timeout 10 --cacert "$PKG_CERT" -o "$gz" "$repo_url"; then
             if gzip -dc "$gz" > "$idx"; then
                 printf '%s\n' "$url" > "$PKG_INDEX/repo.$i.url"
                 got=$((got + 1))

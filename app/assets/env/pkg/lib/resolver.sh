@@ -21,7 +21,25 @@ valid_package_name() {
 
 # choose_dep TERM -> package line (no repository prefix) or empty
 choose_dep() {
-    local term="$1" out="" alt nm con op ver line tab=$'\t'
+    local term="$1" out="" alt nm con op ver line installed tab=$'\t'
+    # Prefer an already installed alternative only when its actual version
+    # satisfies the dependency. Avoid installing nodejs over nodejs-lts.
+    while IFS= read -r alt; do
+        nm="$(printf '%s' "$alt" | sed 's/^ *//; s/(.*//; s/\[.*//; s/:.*//; s/[[:space:]]*$//')"
+        valid_package_name "$nm" || continue
+        db_exists "$nm" || continue
+        con="$(printf '%s' "$alt" | sed -n 's/.*(\([^)]*\)).*/\1/p')"
+        op="$(printf '%s' "$con" | awk '{print $1}')"
+        ver="$(printf '%s' "$con" | awk '{print $2}')"
+        installed="$(db_get "$nm" version)"
+        if [ -n "$ver" ]; then
+            [ -n "$installed" ] && ver_satisfies "$installed" "$op" "$ver" || continue
+        fi
+        printf '%s\t%s\n' "$nm" "$installed"
+        return 0
+    done <<EOF
+$(printf '%s' "$term" | tr '|' '\n')
+EOF
     while IFS= read -r alt; do
         alt="$(printf '%s' "$alt" | sed 's/^ *//; s/ *$//')"
         [ -n "$alt" ] || continue
